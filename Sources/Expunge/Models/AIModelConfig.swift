@@ -1,0 +1,195 @@
+import Foundation
+
+/// 单个模型配置档（一个 profile）。
+///
+/// 协议分两类（视觉上两列）：
+/// - **customOpenAI**：任意 OpenAI 兼容端点（OpenAI 官方、本地代理、第三方中转都行），
+///   chat/completions 协议，默认 `https://api.openai.com/v1`，可改。
+/// - **customAnthropic**：任意 Anthropic 兼容端点，messages 协议，
+///   需要 `x-api-key` + `anthropic-version` 头，`system` 走顶级字段，
+///   默认 `https://api.anthropic.com/v1`，可改。
+///
+/// 每个 profile **独立**保存自己的 apiKey / baseURL / model，互不串台——
+/// 「切到 Anthropic 把 OpenAI 的 key 带过去」这种事不会发生，因为它们是
+/// 各自独立的存档，而不是一个共享表单。
+struct AIModelConfig: Codable, Equatable, Identifiable {
+    let id: UUID
+    /// 用户自定义的显示名（可空，空则用「协议 · 模型」兜底）。
+    var name: String
+    var provider: Provider
+    var apiKey: String
+    var baseURL: String
+    var model: String
+
+    init(id: UUID = UUID(),
+         name: String = "",
+         provider: Provider = .customOpenAI,
+         apiKey: String = "",
+         baseURL: String = "",
+         model: String = "") {
+        self.id = id
+        self.name = name
+        self.provider = provider
+        self.apiKey = apiKey
+        self.baseURL = baseURL
+        self.model = model
+    }
+
+    enum Provider: String, Codable, CaseIterable, Identifiable {
+        case customOpenAI
+        case customAnthropic
+        var id: String { rawValue }
+
+        var displayName: String {
+            switch self {
+            case .customOpenAI:    return L10n.t("自定义（OpenAI 兼容）", "Custom (OpenAI-compatible)")
+            case .customAnthropic: return L10n.t("自定义（Anthropic 兼容）", "Custom (Anthropic-compatible)")
+            }
+        }
+
+        /// 下拉 / 列表里用的短名。
+        var shortLabel: String {
+            switch self {
+            case .customOpenAI:    return "OpenAI"
+            case .customAnthropic: return "Anthropic"
+            }
+        }
+
+        /// 不选 baseURL 时用的默认值。
+        var defaultBaseURL: String {
+            switch self {
+            case .customOpenAI:    return "https://api.openai.com/v1"
+            case .customAnthropic: return "https://api.anthropic.com/v1"
+            }
+        }
+
+        /// 不选 model 时用的默认值。
+        var defaultModel: String {
+            switch self {
+            case .customOpenAI:    return "gpt-4o-mini"
+            case .customAnthropic: return "claude-3-5-sonnet-20241022"
+            }
+        }
+
+        /// 是否走 Anthropic messages 协议（自定义 Anthropic 兼容）。
+        var isAnthropicProtocol: Bool {
+            self == .customAnthropic
+        }
+
+        /// Anthropic 的 system prompt 是请求体里的顶级字段，不是 messages 里的一项。
+        var usesTopLevelSystem: Bool { isAnthropicProtocol }
+
+        /// 自定义解码，兼容旧版 `openai` / `anthropic` / `custom`（统一映射到对应兼容类型）。
+        init(from decoder: Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            let raw = try container.decode(String.self)
+            switch raw {
+            case Provider.customOpenAI.rawValue:    self = .customOpenAI
+            case Provider.customAnthropic.rawValue: self = .customAnthropic
+            case "openai":    self = .customOpenAI    // 旧数据迁移
+            case "anthropic": self = .customAnthropic // 旧数据迁移
+            case "custom":    self = .customOpenAI    // 旧数据迁移
+            default:          self = .customOpenAI
+            }
+        }
+    }
+
+    // MARK: - 派生
+
+    /// 用户是否真正填齐了调用所需字段。
+    var isConfigured: Bool {
+        !apiKey.isEmpty && !effectiveModel.isEmpty
+    }
+
+    var effectiveBaseURL: String {
+        baseURL.trimmingCharacters(in: .whitespaces).isEmpty
+            ? provider.defaultBaseURL
+            : baseURL.trimmingCharacters(in: .whitespaces)
+    }
+
+    var effectiveModel: String {
+        model.trimmingCharacters(in: .whitespaces).isEmpty
+            ? provider.defaultModel
+            : model.trimmingCharacters(in: .whitespaces)
+    }
+
+    /// 列表 / 下拉里展示的名字：自定义 name 优先，否则回退到模型名（不再用「OpenAI」兜底）。
+    var displayName: String {
+        let n = name.trimmingCharacters(in: .whitespaces)
+        if !n.isEmpty { return n }
+        return effectiveModel
+    }
+}
+
+/// 多个模型配置档的集合（「问 AI」的模型仓库）。
+///
+/// - `profiles`：用户配置的所有档（可只填了一个，也可多个）。
+/// - `defaultID`：在设置页里标为「默认」的档；新开对话、下拉未显式选择时回退到它。
+/// - `activeID`：对话框下拉当前选中的档；优先级高于 `defaultID`。
+///
+/// 持久化在 UserDefaults（key `expunge.aimodels`）。首次启动若发现旧版单配置
+/// `expunge.aimodel`，自动迁移成单个 profile，避免老用户配置丢失。
+struct ModelConfigStore: Codable, Equatable {
+    var profiles: [AIModelConfig]
+    var defaultID: UUID?
+    var activeID: UUID?
+
+    // MARK: - 派生
+
+    /// 是否存在至少一条「填齐了 key + model」的可用档。
+    var isConfigured: Bool {
+        profiles.contains { $0.isConfigured }
+    }
+
+    /// 当前用于回答的档：activeID → defaultID → 第一条可用 → 第一条。
+    var active: AIModelConfig? {
+        if let id = activeID, let p = profiles.first(where: { $0.id == id }) { return p }
+        if let id = defaultID, let p = profiles.first(where: { $0.id == id }) { return p }
+        return profiles.first(where: { $0.isConfigured }) ?? profiles.first
+    }
+
+    /// 下拉可选项：只列「已填齐」的档，避免把半截配置丢给模型。
+    var selectable: [AIModelConfig] {
+        profiles.filter { $0.isConfigured }
+    }
+
+    /// 列表 / 下拉统一展示名。
+    static func displayName(_ p: AIModelConfig) -> String { p.displayName }
+
+    // MARK: - 持久化
+
+    static let userDefaultsKey = "expunge.aimodels"
+
+    static var current: ModelConfigStore {
+        get {
+            if let data = UserDefaults.standard.data(forKey: userDefaultsKey),
+               let s = try? JSONDecoder().decode(ModelConfigStore.self, from: data) {
+                return s
+            }
+            // 旧版单配置迁移：把 expunge.aimodel 里的那份转成一个 profile。
+            if let data = UserDefaults.standard.data(forKey: "expunge.aimodel"),
+               let old = try? JSONDecoder().decode(LegacyAIModelConfig.self, from: data) {
+                var m = AIModelConfig(provider: old.provider,
+                                      apiKey: old.apiKey,
+                                      baseURL: old.baseURL,
+                                      model: old.model)
+                m.name = ""
+                return ModelConfigStore(profiles: [m], defaultID: m.id, activeID: m.id)
+            }
+            return ModelConfigStore(profiles: [], defaultID: nil, activeID: nil)
+        }
+        set {
+            if let data = try? JSONEncoder().encode(newValue) {
+                UserDefaults.standard.set(data, forKey: userDefaultsKey)
+            }
+        }
+    }
+
+    /// 旧版单配置的字段布局，仅用于迁移。
+    private struct LegacyAIModelConfig: Codable {
+        var provider: AIModelConfig.Provider
+        var apiKey: String
+        var baseURL: String
+        var model: String
+    }
+}

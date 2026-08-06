@@ -1,0 +1,177 @@
+classDiagram
+    direction LR
+
+    class AIMessage {
+        <<struct>>
+        +UUID id
+        +Role role
+        +String text
+        +AgentStep[] steps
+        +AgentTab? redirect
+        +Bool awaitingApproval
+        +Bool isAnchor
+        +init(role, text, steps, redirect, awaitingApproval, isAnchor)
+        +init(from~Decoder~) throws
+        +static anchor() AIMessage
+    }
+    note for AIMessage "Identifiable, Codable, Equatable\nCodingKeys 排除 id：解码时重新生成\nid 仅用于 ForEach / scrollTo，不跨会话引用\n位置：Models/ChatMessage.swift（从 AskAIView.swift 迁入）"
+
+    class Role {
+        <<enumeration>>
+        me
+        ai
+        system
+    }
+    note for Role "String RawValue + Codable\n.system 专用于 /reset 锚点分割线\n永不进模型 history · 不计入空态判定"
+
+    class AgentStep {
+        <<struct>>
+        +UUID id
+        +String skill
+        +String command
+        +String summary
+        +Bool ok
+        +SkillRisk risk
+        +init(from~Decoder~) throws
+    }
+    note for AgentStep "本次新增 Codable\nCodingKeys 排除 id\n只落 summary，不落 observation（那才是大头）\n运行逻辑一行不改"
+
+    class SkillRisk {
+        <<enumeration>>
+        readOnly
+        mutating
+        destructive
+    }
+    note for SkillRisk "已是 String RawValue\n本次仅追加 Codable（一行）"
+
+    class AgentTab {
+        <<enumeration>>
+        apps
+        leftovers
+        processes
+    }
+    note for AgentTab "已是 String RawValue + Sendable\n本次仅追加 Codable（一行）"
+
+    class ChatArchive {
+        <<struct>>
+        +Int version
+        +AIMessage[] messages
+    }
+    note for ChatArchive "落盘信封。version 用于将来迁移，\n而不是靠「解码失败就清空」收场"
+
+    class ChatStore {
+        <<final class, singleton>>
+        +static ChatStore shared
+        -URL url
+        -init()
+        +all() AIMessage[]
+        +save(AIMessage[]) Void
+        +clearAll() Void
+    }
+    note for ChatStore "哑 I/O：不裁剪、不做业务判断\n~/Library/Application Support/Expunge/askai-history.json\n目录自动创建 · 读写失败静默降级（不崩不弹窗）\n形状完全复刻 FeedbackStore"
+
+    class ChatCommand {
+        <<enumeration>>
+        new
+        reset
+        +static parse(String) ChatCommand?
+    }
+    note for ChatCommand "安全项：白名单精确匹配\ntrim + lowercased 后全等才命中\n/clear 是 /new 的静默别名（UI 不暴露）\n/Users/... /tmp/x /new foo 一律返回 nil"
+
+    class ChatPolicy {
+        <<enum, namespace>>
+        +static Int maxContextTurns$
+        +static Int maxInputChars$
+        +static Int inputWarnThreshold$
+        +static trim(AIMessage[], Int) AIMessage[]
+        +static afterAnchor(AIMessage[]) AIMessage[]
+        +static modelHistory(AIMessage[]) Tuple[]
+        +static hasConversation(AIMessage[]) Bool
+    }
+    note for ChatPolicy "全部无状态纯函数\n不 import SwiftUI · 不碰 MainActor · 不碰 FS\n→ SelfTest 可 100% 覆盖\nmaxContextTurns=15 ≠ AgentRuntime.maxTurns=4"
+
+    class AppState {
+        <<MainActor, ObservableObject>>
+        +AIMessage[] chatMessages
+        +Bool chatIsThinking
+        +Bool chatHasConversation
+        +Tuple[] chatModelHistory
+        +restoreChat() Void
+        +appendChat(AIMessage) Void
+        +clearChat() Void
+        +resetChatContext() Void
+        -persistChat() Void
+    }
+    note for AppState "chatMessages 是 private(set)\n不变量：恒「已裁到 ≤15 轮」且「已落盘」\n三处消费者都信任它：屏幕 / 落盘 / 发模型\nrestoreChat() 由 init() 调用，只跑一次"
+
+    class AskAIView {
+        <<View>>
+        -String input
+        -Bool showSettings
+        -Bool showSkills
+        -AgentBridge bridge
+        -send(String) Void
+        -runNewChat() Void
+        -runResetContext() Void
+        -Bool canSend
+        -Int inputCount
+    }
+    note for AskAIView "不再持有 messages / isThinking\n全部读写 state.*（修正 B：切 tab 不丢）\nsend() 四道闸：空 → 重入 → 超限 → 命令分流"
+
+    class SystemDivider {
+        <<View, private>>
+        +AIMessage message
+    }
+    note for SystemDivider "HStack { Divider · Text · Divider }\n独立组件，不塞进 MessageBubble\nisAnchor 时实时取 L10n 文案"
+
+    class MessageBubble {
+        <<View, private>>
+        +AIMessage message
+        +onGo() Void
+    }
+
+    class AgentBridge {
+        <<MainActor, ObservableObject>>
+        +String? runningCommand
+        +AgentStep[] steps
+        +attach(AppState) Void
+        +reset() Void
+        +makeSession() AgentSession
+    }
+    note for AgentBridge "语义边界钉死（修正 A）：\nreset() 只清「本次运行的实时进度」\n与「对话上下文」毫无关系\n/reset 的上下文语义由 AppState.resetChatContext() 承担"
+
+    class AgentRuntime {
+        <<struct>>
+        +AIModelConfig? config
+        +AgentBridge? bridge
+        +Int maxTurns
+        +run(goal, history, session) AgentRun
+    }
+    note for AgentRuntime "maxTurns=4 是单次 agent loop 的决策轮数\n与 ChatPolicy.maxContextTurns=15 完全无关\n内部自己 append goal → history 必须在 append user 前取"
+
+    class LLMClient {
+        <<enum>>
+        +static complete(config, messages, system) String
+    }
+    note for LLMClient "本次不改。Anthropic 要求 messages[0] 是 user\n→ modelHistory 的 drop(while: .ai) 顺带修掉既有 400 缺陷"
+
+    AIMessage *-- Role : 持有
+    AIMessage o-- AgentStep : 0..n
+    AIMessage ..> AgentTab : 可选引用
+    AgentStep *-- SkillRisk : 持有
+    ChatArchive o-- AIMessage : 封装 0..n
+    ChatStore ..> ChatArchive : 编解码
+    ChatPolicy ..> AIMessage : 纯函数处理
+    AppState o-- AIMessage : 持有唯一真相
+    AppState ..> ChatStore : 落盘 / 读盘
+    AppState ..> ChatPolicy : 裁剪 / 派生
+    AskAIView ..> AppState : 读写对话状态
+    AskAIView ..> ChatCommand : 输入分流
+    AskAIView ..> ChatPolicy : 读限额常量
+    AskAIView o-- AgentBridge : StateObject
+    AskAIView ..> AgentRuntime : 发起一次运行
+    AskAIView *-- SystemDivider : role == .system
+    AskAIView *-- MessageBubble : role == .me / .ai
+    AgentRuntime ..> AgentBridge : 回报实时进度
+    AgentRuntime ..> LLMClient : 每轮决策
+    AgentRuntime ..> AgentStep : 产出

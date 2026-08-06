@@ -1,0 +1,33 @@
+# Build artifacts
+.build/
+DerivedData/
+*.xcodeproj/
+*.xcworkspace/
+
+# The built app
+Expunge.app/
+/Applications/Expunge.app
+
+# 发布产物（DMG + sha256 由 build_release.sh 生成，不入库）
+dist/
+
+# Backup files created by the app
+Library/Application Support/Expunge/backups/
+
+# macOS Finder metadata
+.DS_Store
+Thumbs.db
+
+# Swift Package Manager artifacts
+Packages/
+.swiftpm/
+
+# Shell script artifacts
+*.log
+*.out
+
+# Icon generation temp files
+icon_*.png
+
+# Project assistant data
+.workbuddy/

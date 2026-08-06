@@ -1,0 +1,954 @@
+import SwiftUI
+import Foundation
+
+/// 「问 AI」tab：用自然语言指挥本地 Agent 调用 Expunge 的 skill 完成清理。
+///
+/// 这一页只负责「说」和「看」，不做任何决策：
+/// - 决策在 `AgentRuntime`（纯 AI 多轮 loop，由真实模型驱动）
+/// - 能做什么在 `SkillRegistry`（白名单，每个 skill 都对应一条真实 CLI）
+/// - 副作用怎么落地在 `AgentBridge`
+///
+/// 关键边界：**删除类动作绝不经 Agent 之手**。它最多给出 `plan_uninstall`
+/// 的预演清单，真正动手要用户在「应用 / 残留」页点确认。
+
+/// 输入框的尺寸口径。放这里不放 ChatPolicy —— 那是纯模型命名空间，不该装 UI 度量。
+private enum ComposerMetrics {
+    static let visibleLines = 3          // 输入框默认/固定高度按 3 行显示
+    static let lineH: CGFloat = 17       // 单行内容高（font 12.5 + lineSpacing 2）
+    static let inset: CGFloat = 8        // TextEditor 上下内边距
+    static let inputHeight = CGFloat(visibleLines) * lineH + inset * 2 // ≈ 67
+    static let corner: CGFloat = 10
+}
+
+struct AskAIView: View {
+    @EnvironmentObject var state: AppState
+    @StateObject private var bridge = AgentBridge()
+    // 对话状态（messages / isThinking）住在 AppState 里，不在这里。
+    // 这个 View 会随着切 tab 被销毁重建，@State 活不过一次往返。
+    @State private var input = ""
+    @FocusState private var inputFocused: Bool
+    @State private var showSettings = false
+    @State private var showSkills = false
+    @State private var showMemory = false
+    @State private var showNewChatConfirm = false
+    @State private var slashSelection = 0
+    @State private var slashDismissed = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            PageHeader(title: L10n.t("问 AI", "Ask AI"),
+                       subtitle: L10n.t("用自然语言指挥 Agent 调用 Expunge 的 skill · 危险操作永远先征求你同意",
+                                         "Tell the agent what to clean up — it calls Expunge skills, and always asks before anything risky")) {
+                modelStatusPill
+                Button {
+                    showSkills = true
+                } label: {
+                    Image(systemName: "square.grid.2x2")
+                        .font(.system(size: 13))
+                }
+                .buttonStyle(.plain)
+                .help(L10n.t("查看 Agent 可调用的 skill", "See the skills the agent can call"))
+                Button {
+                    showSettings = true
+                } label: {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 13))
+                }
+                .buttonStyle(.plain)
+                .help(L10n.t("配置模型（OpenAI / Anthropic / 自定义）",
+                             "Configure model (OpenAI / Anthropic / custom)"))
+                // 记忆与记录文件收进一个菜单：这两项都是低频入口，
+                // 摊平成按钮会把头部挤成一排图标，反而让高频的「新会话」难找。
+                Menu {
+                    Button {
+                        showMemory = true
+                    } label: {
+                        Label(state.memoryNotes.isEmpty
+                                ? L10n.t("长期记忆…", "Long-term memory…")
+                                : L10n.t("长期记忆（\(state.memoryNotes.count)）…",
+                                         "Long-term memory (\(state.memoryNotes.count))…"),
+                              systemImage: "brain")
+                    }
+                    Divider()
+                    Button {
+                        RevealService.revealDataFile(ChatStore.shared.fileURL)
+                    } label: {
+                        Label(L10n.t("在 Finder 中显示对话记录", "Reveal chat history in Finder"),
+                              systemImage: "folder")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.system(size: 13))
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .frame(width: 18)
+                .help(L10n.t("记忆与对话记录", "Memory and chat history"))
+                if state.chatHasConversation {
+                    Button(L10n.t("新会话", "New chat")) { showNewChatConfirm = true }
+                        .controlSize(.small)
+                }
+            }
+            Divider()
+            if !state.chatHasConversation && !state.chatIsThinking { emptyState } else { chatLog }
+            composer
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .onAppear { bridge.attach(state) }
+        .sheet(isPresented: $showSettings) { AIModelSettingsSheet() }
+        .sheet(isPresented: $showSkills) { SkillCatalogSheet() }
+        .sheet(isPresented: $showMemory) { MemorySheet() }
+        .alert(L10n.t("开始新会话", "Start a new chat?"), isPresented: $showNewChatConfirm) {
+            Button(L10n.t("取消", "Cancel"), role: .cancel) {}
+            Button(L10n.t("清空并开始新会话", "Clear and start new"), role: .destructive) {
+                runNewChat()
+            }
+        } message: {
+            Text(L10n.t("当前对话历史将被清空。长期记忆（/remember 记的内容）不受影响。",
+                        "The current chat history will be cleared. Long-term memories (saved via /remember) are untouched."))
+        }
+    }
+
+    // 头部右侧：当前是否已配好模型。没配好时点击直接跳去设置。
+    private var modelStatusPill: some View {
+        Group {
+            if let cfg = state.activeConfig {
+                pill(text: L10n.t("模型：\(ModelConfigStore.displayName(cfg))",
+                                  "Model: \(ModelConfigStore.displayName(cfg))"),
+                     bg: Theme.aiBg, border: Theme.aiBorder, fg: Theme.aiText)
+            } else {
+                Button {
+                    showSettings = true
+                } label: {
+                    pill(text: L10n.t("未配置模型", "Model not set"),
+                         bg: Theme.riskUncertainBg, border: Theme.riskUncertainBorder,
+                         fg: Theme.riskUncertainText)
+                }
+                .buttonStyle(.plain)
+                .help(L10n.t("点此去配置模型（需要 API Key）", "Tap to configure a model (API key required)"))
+            }
+        }
+    }
+
+    /// 已配置至少一个模型档 —— 这是「问 AI」能跑的前提。
+    private var modelReady: Bool {
+        state.modelReady
+    }
+
+    /// 对话框顶部的模型下拉：绑定到当前活动档（activeID）。
+    private var activeIDBinding: Binding<UUID?> {
+        Binding(
+            get: { state.modelStore.active?.id },
+            set: { id in if let id { state.modelStore.activeID = id } }
+        )
+    }
+
+    private var slashMatches: [SlashCommandItem] { ChatCommand.suggestions(for: input) }
+
+    private var showSlashPalette: Bool {
+        !slashDismissed && !slashMatches.isEmpty && !state.chatIsThinking
+    }
+
+    private var slashHighlighted: SlashCommandItem? {
+        guard showSlashPalette else { return nil }
+        return slashMatches.indices.contains(slashSelection) ? slashMatches[slashSelection]
+                                                             : slashMatches.first
+    }
+
+    private func pill(text: String, bg: Color, border: Color, fg: some ShapeStyle) -> some View {
+        Text(text)
+            .font(.system(size: 10))
+            .padding(.horizontal, 8).padding(.vertical, 3)
+            .background(bg, in: Capsule())
+            .overlay(Capsule().stroke(border, lineWidth: 1))
+            .foregroundStyle(fg)
+    }
+
+    // MARK: - 空态（首屏）
+
+    private var emptyState: some View {
+        ScrollView {
+            VStack(spacing: 22) {
+                VStack(spacing: 8) {
+                    Text(L10n.t("今天想清理点什么？", "What would you like to clean up today?"))
+                        .font(.system(size: 22, weight: .semibold))
+                    Text(L10n.t("描述你的目标即可，例如「把 Cursor 彻底卸干净」。Agent 会自己决定调哪些 skill，先扫后判，执行前一定等你确认。\n\n斜杠命令：/new 新会话  /reset 重置上下文  /remember 记住一件事",
+                                "Describe your goal — e.g. “Uninstall Cursor completely”. The agent picks its own skills, scans before it judges, and waits for your OK before acting.\n\nCommands: /new clear chat  /reset restart context  /remember save a note"))
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: 460)
+                }
+                    .padding(.top, 28)
+
+                if !modelReady { configCard }
+
+                // 未配置模型时只显示配置引导，隐藏示例按钮和功能介绍卡片，
+                // 避免用户对着一堆点不动的入口发懵。
+                if modelReady {
+                    chips
+
+                    HStack(spacing: 10) {
+                        cap(icon: "square.grid.2x2", title: L10n.t("\(SkillRegistry.all.count) 个 skill", "\(SkillRegistry.all.count) skills"),
+                            detail: L10n.t("每个都对应一条 Expunge 自己的 CLI", "each maps to a real Expunge CLI command"))
+                        cap(icon: "hand.raised.fill", title: L10n.t("执行前必确认", "Asks before acting"),
+                            detail: L10n.t("Agent 只出计划，删除由你点确认", "the agent only drafts plans — you approve removals"))
+                        cap(icon: "lock.fill", title: L10n.t("数据不出本机", "Stays on your Mac"),
+                            detail: L10n.t("没有通用 shell，不读文件内容", "no general shell, never reads file contents"))
+                    }
+                    .padding(.horizontal, 12)
+
+                    Button {
+                        showSkills = true
+                    } label: {
+                        Text(L10n.t("看看 Agent 能调用哪些 skill →", "See which skills the agent can call →"))
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(Theme.accent)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(20)
+        }
+        .background(Theme.bgCanvas)
+    }
+
+    private var chips: some View {
+        let items: [(String, String)] = [
+            ("sparkles",        L10n.t("看看装了哪些 AI 工具，能清理吗", "Check installed AI tools for cleanup")),
+            ("wand.and.rays",   L10n.t("扫一遍所有残留", "Scan all leftovers")),
+            ("waveform.path.ecg", L10n.t("列出后台进程", "List background processes")),
+            ("bolt.fill",       L10n.t("ChatGPT 占的空间有多大？", "How much space does ChatGPT take?")),
+            ("magnifyingglass", L10n.t("看看有什么可以清理的", "See what can be cleaned up"))
+        ]
+        return FlowRow(spacing: 8) {
+            ForEach(items, id: \.1) { icon, text in
+                Button {
+                    // 只填入、不发送：建议词是起点不是终点，用户往往要改一改
+                    //（换个 app 名、加个限定）再发。直接发出去等于替他做主。
+                    inputFocused = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        input = text
+                    }
+                } label: {
+                    Label(text, systemImage: icon)
+                        .font(.system(size: 12))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .background(Theme.accentSubtle, in: Capsule())
+                        .overlay(Capsule().stroke(Theme.accentBorder, lineWidth: 1))
+                        .foregroundStyle(Theme.accentActive)
+                }
+                .buttonStyle(.plain)
+                .help(L10n.t("填入输入框，可修改后按回车发送",
+                             "Fills the input box — edit it, then press Return"))
+            }
+        }
+        .padding(.horizontal, 12)
+    }
+
+    // 未配置模型时的醒目提示卡：点一下直接去设置。
+    private var configCard: some View {
+        Button {
+            showSettings = true
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 15))
+                    .foregroundStyle(Theme.riskUncertainText)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L10n.t("请先配置模型", "Configure a model first"))
+                        .font(.system(size: 13, weight: .semibold))
+                    Text(L10n.t("「问 AI」需要 API Key 才能调用模型。点这里去填（OpenAI / Anthropic 兼容都行）。",
+                                "Ask AI needs an API key to call the model. Tap to set it up — OpenAI- or Anthropic-compatible both work."))
+                        .font(.system(size: 11)).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+                Text(L10n.t("去配置 →", "Configure →"))
+                    .font(.system(size: 11.5, weight: .medium))
+                    .foregroundStyle(Theme.accent)
+            }
+            .padding(12)
+            .frame(maxWidth: 460)
+            .background(Theme.riskUncertainBg, in: RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.riskUncertainBorder, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func cap(icon: String, title: String, detail: String) -> some View {
+        VStack(spacing: 4) {
+            Image(systemName: icon).font(.system(size: 16)).foregroundStyle(Theme.accent)
+            Text(title).font(.system(size: 11.5, weight: .semibold))
+            Text(detail).font(.system(size: 10)).foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center).frame(maxWidth: 150)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(10)
+        .background(Theme.bgSurface, in: RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.divider, lineWidth: 1))
+    }
+
+    // MARK: - 对话记录
+
+    private var chatLog: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    ForEach(state.chatMessages) { m in
+                        Group {
+                            if m.role == .system {
+                                SystemDivider(message: m)
+                            } else {
+                                MessageBubble(message: m) {
+                                    if let tab = m.redirect {
+                                        switch tab {
+                                        case .apps:      state.selectedTab = .apps
+                                        case .leftovers: state.selectedTab = .leftovers
+                                        case .processes: state.selectedTab = .processes
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        .id(m.id)
+                    }
+                    if state.chatIsThinking {
+                        ThinkingBubble(steps: bridge.steps, running: bridge.runningCommand)
+                            .id("thinking")
+                    }
+                }
+                .padding(16)
+            }
+            .background(Theme.bgCanvas)
+            .onAppear {
+                // 切 tab 回来 / 冷启动恢复时滚到最后一条。
+                // 延迟一帧：onAppear 时 ScrollView 还没完成布局，直接 scrollTo 无效。
+                guard let last = state.chatMessages.last else { return }
+                DispatchQueue.main.async {
+                    proxy.scrollTo(last.id, anchor: .bottom)
+                }
+            }
+            .onChange(of: state.chatMessages.count) { _, _ in
+                if state.chatIsThinking {
+                    proxy.scrollTo("thinking", anchor: .bottom)
+                } else if let last = state.chatMessages.last {
+                    proxy.scrollTo(last.id, anchor: .bottom)
+                }
+            }
+            .onChange(of: bridge.steps.count) { _, _ in
+                if state.chatIsThinking { proxy.scrollTo("thinking", anchor: .bottom) }
+            }
+            // 用户发送后 chatIsThinking 变 true、思考气泡出现；之前没有监听这个
+            // 状态，于是只滚到用户消息、思考气泡留在可视区下方。这里补上。
+            // 延迟一帧：状态翻转时气泡还没完成布局，直接 scrollTo 无效。
+            .onChange(of: state.chatIsThinking) { _, isThinking in
+                if isThinking {
+                    DispatchQueue.main.async { proxy.scrollTo("thinking", anchor: .bottom) }
+                }
+            }
+        }
+    }
+
+    // MARK: - 输入区
+
+    private var composer: some View {
+        VStack(spacing: 0) {
+            // 已配了多个模型档时，在输入框上方给一个下拉，随时切换回答用的模型。
+            if state.modelStore.selectable.count > 1 {
+                HStack(spacing: 6) {
+                    Image(systemName: "cpu")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                    Picker(selection: activeIDBinding) {
+                        ForEach(state.modelStore.selectable) { p in
+                            Text(ModelConfigStore.displayName(p)).tag(p.id as UUID?)
+                        }
+                    } label: { EmptyView() }
+                    .pickerStyle(.menu)
+                    .controlSize(.small)
+                    .frame(width: 240)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 12)
+                .padding(.top, 8)
+            }
+            Divider()
+            ZStack(alignment: .topLeading) {
+                HStack(alignment: .bottom, spacing: 10) {
+                    ZStack(alignment: .topLeading) {
+                        // placeholder：TextEditor 没有内置 placeholder，用 overlay 实现。
+                        if input.isEmpty {
+                            Text(L10n.t("描述你想清理什么，回车发送（⌥回车换行）…",
+                                         "Describe what to clean up — Return to send, ⌥Return for a new line…"))
+                                .font(.system(size: 12.5))
+                                .foregroundStyle(.tertiary)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 5)
+                                .allowsHitTesting(false)
+                        }
+
+                        TextEditor(text: $input)
+                            .font(.system(size: 12.5))
+                            .lineSpacing(2)
+                            .textEditorStyle(.plain)
+                            .scrollContentBackground(.hidden)
+                            .background(Color.clear)
+                            .scrollIndicators(.visible)
+                            .focused($inputFocused)
+                            .frame(height: ComposerMetrics.inputHeight, alignment: .topLeading)
+                            // 回车发送、⌥回车换行。用 phases 变体读取 modifiers，
+                            // 普通 .onKeyPress(.return) 会同时吞掉 ⌥回车，无法区分。
+                            .onKeyPress(.return, phases: [.down, .repeat]) { press in
+                                if press.modifiers == [.option] {
+                                    input.append("\n")
+                                    return .handled
+                                }
+                                if press.modifiers.isEmpty {
+                                    if let item = slashHighlighted {
+                                        acceptSlash(item)
+                                    } else if canSend {
+                                        send(input)
+                                    }
+                                    return .handled
+                                }
+                                return .ignored
+                            }
+                            .onKeyPress(.upArrow) {
+                                guard showSlashPalette else { return .ignored }
+                                slashSelection = max(0, slashSelection - 1); return .handled
+                            }
+                            .onKeyPress(.downArrow) {
+                                guard showSlashPalette else { return .ignored }
+                                slashSelection = min(slashMatches.count - 1, slashSelection + 1); return .handled
+                            }
+                            .onKeyPress(.tab) {
+                                guard let item = slashHighlighted else { return .ignored }
+                                input = item.token      // Tab 只补全不发送
+                                return .handled
+                            }
+                            .onKeyPress(.escape) {
+                                guard showSlashPalette else { return .ignored }
+                                slashDismissed = true; return .handled
+                            }
+                    }
+                    .overlay(alignment: .bottomTrailing) {
+                        Text(counterText)
+                            .font(.system(size: 9.5))
+                            // 等宽数字：否则 999 → 1000 时宽度跳动。
+                            .monospacedDigit()
+                            .foregroundStyle(counterStyle)
+                            .padding(.trailing, 36)
+                            .padding(.bottom, 6)
+                            .help(overLimit
+                                  ? L10n.t("已超出 \(ChatPolicy.maxInputChars) 字上限，请精简后发送",
+                                           "Over the \(ChatPolicy.maxInputChars)-character limit — please shorten it")
+                                  : "")
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .background(Theme.bgCanvas, in: RoundedRectangle(cornerRadius: ComposerMetrics.corner))
+                    .overlay(RoundedRectangle(cornerRadius: ComposerMetrics.corner)
+                        .stroke(inputFocused ? Theme.accentBorder : Theme.divider, lineWidth: 1))
+
+                    Button { send(input) } label: {
+                        Image(systemName: "arrow.up")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 26, height: 26)
+                            .background(canSend ? Theme.accent : Color.secondary.opacity(0.4), in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!canSend)
+                }
+                .padding(10)
+                .background(Theme.bgSurface)
+
+                // 斜杠面板：放在输入区上面的独立层，而不是嵌在输入框内部。
+                // 之前用 `.overlay(alignment: .topLeading)` 挂在 HStack 上会被裁剪到
+                // 输入区那 67pt 高度里，导致展示不全、遮挡输入、无法滚动。
+                if showSlashPalette {
+                    SlashPalette(items: slashMatches,
+                                 selection: slashSelection,
+                                 onHover: { slashSelection = $0 },
+                                 onPick:  { acceptSlash($0) })
+                        .padding(.leading, 12)
+                        // 把自己的 .top 对齐基准挪到「自己底边 + 8」，
+                        // 于是底边落在输入区顶边上方 8pt —— 面板整个浮在输入框之上。
+                        .alignmentGuide(.top) { $0[.bottom] + 8 }
+                        .transition(.opacity)
+                }
+            }
+            .animation(.easeOut(duration: 0.12), value: showSlashPalette)
+            .onChange(of: input) { _, newValue in
+                // 硬性截断到上限：防止输入框继续累积，确保计数器永远不超过 maxInputChars。
+                // 之前"只禁发不裁字"在 GUI 上被用户感知为 bug（显示 1105/1000），
+                // 因此改为输入层直接截断。
+                if newValue.count > ChatPolicy.maxInputChars {
+                    input = String(newValue.prefix(ChatPolicy.maxInputChars))
+                }
+                slashDismissed = false
+                slashSelection = 0
+            }
+            // 底部提示行：只保留左边那句能力边界说明。
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(L10n.t("Agent 只能调用 Expunge 的 \(SkillRegistry.all.count) 个 skill，没有通用 shell，也不会读取文件内容",
+                            "The agent can only call Expunge's \(SkillRegistry.all.count) skills — no general shell, no file contents read"))
+                    .font(.system(size: 9.5))
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 12)
+            .padding(.bottom, 8)
+            .background(Theme.bgSurface)
+        }
+    }
+
+    /// 按 `Character` 计数：一个汉字 = 1，一个 emoji 字素簇 = 1。
+    /// **不用** `utf8.count` / `utf16.count`，那会让中文用户莫名其妙地少打两千字。
+    private var inputCount: Int { input.count }
+
+    private var overLimit: Bool { inputCount > ChatPolicy.maxInputChars }
+
+    /// 计数器文本，千分位格式化（与参考截图的 "1,105/1,000" 一致）。
+    private var counterText: String {
+        let fmt = NumberFormatter()
+        fmt.numberStyle = .decimal
+        let current = fmt.string(from: NSNumber(value: inputCount)) ?? "\(inputCount)"
+        let max = fmt.string(from: NSNumber(value: ChatPolicy.maxInputChars)) ?? "\(ChatPolicy.maxInputChars)"
+        return "\(current)/\(max)"
+    }
+
+    /// 三档配色。默认用 `.secondary` 保证「灰色」可读；警告/超限再用主题色。
+    /// `HierarchicalShapeStyle` 与 `Color` 类型不同，统一包一层 `AnyShapeStyle`。
+    private var counterStyle: AnyShapeStyle {
+        if overLimit { return AnyShapeStyle(Theme.destructive) }
+        if inputCount >= ChatPolicy.inputWarnThreshold { return AnyShapeStyle(Theme.riskUncertainText) }
+        return AnyShapeStyle(.secondary)
+    }
+
+    private var canSend: Bool {
+        !input.trimmingCharacters(in: .whitespaces).isEmpty
+            && !state.chatIsThinking
+            && !overLimit
+    }
+
+    /// 补全只做一件事：把 token 填回输入框，然后**走和手打完全相同的那条发送路径**。
+    /// 白名单仍是唯一闸门，这里不做任何命令分发。
+    ///
+    /// /remember 是唯一带参命令：只填输入框（加尾部空格），不发送，让用户继续写内容。
+    private func acceptSlash(_ item: SlashCommandItem) {
+        if item.token == ChatCommand.rememberToken {
+            input = item.token + " "
+            slashDismissed = true
+            return
+        }
+        input = item.token
+        send(item.token)
+    }
+
+    // MARK: - 发送
+
+    private func send(_ text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        // 闸门 1/2/3：空输入、重入、超限。canSend 已经覆盖这三条，
+        // 这里是二次防线（回车走的是 onSubmit，绕不开它）。
+        guard canSend else { return }
+
+        // 闸门 4：斜杠命令白名单。只有整条输入全等 /new · /clear · /reset 才命中，
+        // `/Users/…`、`/tmp/x`、`/new foo`、`//new` 一律照常发给模型。
+        if let command = ChatCommand.parse(text) {
+            input = ""
+            switch command {
+            case .new:                runNewChat()
+            case .reset:              runResetContext()
+            case .remember(let body): runRemember(raw: trimmed, body: body)
+            }
+            return
+        }
+
+        // 没配模型：不发请求，直接提示去配置并弹出设置页。
+        // 系统角色：能被 hasConversation 识别为「有内容」以显示在屏幕上，
+        // 但会被 modelHistory 自动过滤掉，不会进入模型上下文。
+        guard modelReady else {
+            input = ""
+            state.appendChat(AIMessage(role: .system, text: AgentRuntime.configPrompt))
+            showSettings = true
+            return
+        }
+        input = ""
+        // ⚠️ history 必须在 appendChat(.me) **之前**取：
+        // AgentRuntime 内部会自己 append 一条 (role: "user", content: goal)，
+        // 顺序调换会让本轮问题被发两遍。
+        let history = state.chatModelHistory
+        state.appendChat(AIMessage(role: .me, text: trimmed))
+        state.chatIsThinking = true
+        bridge.reset()
+
+        // 记忆块在发请求前从 AppState 现取：用户可能刚在面板里删掉一条，
+        // 那一条从这一刻起就不该再影响模型。
+        let memory = state.memoryPromptBlock
+
+        Task {
+            let runtime = AgentRuntime(config: state.activeConfig, bridge: bridge, memory: memory)
+            let run = await runtime.run(goal: trimmed, history: history, session: bridge.makeSession())
+
+            var body = run.answer
+            if let note = run.note { body += "\n\n" + note }
+            state.appendChat(AIMessage(role: .ai, text: body,
+                                       steps: run.steps,
+                                       redirect: run.redirect,
+                                       awaitingApproval: run.awaitingApproval))
+            state.chatIsThinking = false
+            bridge.reset()
+        }
+    }
+
+    /// `/new`（含 `/clear` 别名）与头部「新会话」按钮共用的同一条路径 ——
+    /// 两个入口效果必须完全一致，所以只有这一个实现。
+    private func runNewChat() {
+        state.clearChat()
+        bridge.reset()
+    }
+
+    /// `/reset`：打上下文锚点。屏幕记录与落盘都保留，只是模型不再看到锚点之前的内容。
+    /// `bridge.reset()` 清的是本次运行的实时进度，与上下文无关，两者职责不同、都要调。
+    private func runResetContext() {
+        state.resetChatContext()
+        bridge.reset()
+    }
+
+    /// `/remember`：写一条长期记忆。不发网络请求，立即落盘。
+    ///
+    /// 用户原话(.me) + 系统回执(.system)：回执可见但不进入模型上下文。
+    private func runRemember(raw: String, body: String) {
+        let receipt = state.rememberNote(body)
+        state.appendChat(AIMessage(role: .me, text: raw))
+        state.appendChat(AIMessage(role: .system, text: receipt))
+    }
+
+}
+
+/// `/reset` 打下的上下文分割线。
+///
+/// 不塞进 `MessageBubble`：气泡是「头像 + 圆角 + 左右对齐」，这里是一条横贯的
+/// 分割线，两套布局硬合并会让那个 View 变成双形态的 if 迷宫。
+///
+/// 文案按 `isAnchor` 实时取 `L10n`，不读 `message.text` —— 这样用户切换语言后，
+/// 历史里的旧锚点也跟着变，不会中英混排。`text` 落盘只作人肉可读的 fallback。
+private struct SystemDivider: View {
+    let message: AIMessage
+
+    var body: some View {
+        HStack(spacing: 10) {
+            rule
+            Text(label)
+                .font(.system(size: 10))
+                .foregroundStyle(.tertiary)
+                .fixedSize()
+            rule
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    /// 左右两侧的横线。
+    ///
+    /// 这里刻意**不用** `Divider()`：在 HStack 里 `Divider()` 是**竖**的
+    /// （它跟随父栈的轴向），渲染出来是文案两侧各一根小竖杠，不是设计要的
+    /// 「————— 文案 —————」。用 1pt 的 Rectangle 才能得到横贯的分割线。
+    private var rule: some View {
+        Rectangle()
+            .fill(Theme.divider)
+            .frame(height: 1)
+    }
+
+    private var label: String {
+        message.isAnchor
+            ? L10n.t("上下文已重置 —— 以下开始不再携带之前的对话",
+                     "Context reset — messages above are no longer sent to the model")
+            : message.text
+    }
+}
+
+/// 斜杠命令补全面板。
+///
+/// **纯展示**：它只把候选摆出来，并把用户选中的 token 交回上层填进输入框。
+/// 一条命令成不成立仍然只由 `ChatCommand.parse` 的全等白名单说了算 ——
+/// 这里绝不能出现「按下标直接调 runNewChat()」那种旁路，
+/// 否则白名单就被绕过去了，SelfTest 也守不住。
+private struct SlashPalette: View {
+    let items: [SlashCommandItem]
+    let selection: Int
+    let onHover: (Int) -> Void
+    let onPick: (SlashCommandItem) -> Void
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(Array(items.enumerated()), id: \.element.id) { idx, item in
+                    row(item, active: idx == selection)
+                        .contentShape(Rectangle())
+                        .onHover { if $0 { onHover(idx) } }
+                        .onTapGesture { onPick(item) }
+                    if idx < items.count - 1 { Divider().opacity(0.6) }
+                }
+            }
+        }
+        // 最多显示约 7 行，超出的可滚动；内容少时按内容高度收缩。
+        .frame(minWidth: 250, maxWidth: 250, maxHeight: 200)
+        .background(Theme.bgSurface, in: RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.divider, lineWidth: 1))
+        .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
+    }
+
+    private func row(_ item: SlashCommandItem, active: Bool) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: item.icon)
+                .font(.system(size: 12))
+                .foregroundStyle(Theme.accent)
+                .frame(width: 16)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(item.token)
+                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                Text(item.detail)
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(active ? Theme.accentSubtle : Color.clear)
+    }
+}
+
+// MARK: - 对话气泡
+//
+// 对话模型 `AIMessage` 已迁到 `Models/ChatMessage.swift` —— 它现在被
+// AppState / ChatStore / ChatPolicy 三处引用，不再是这个 View 的私有模型。
+
+private struct MessageBubble: View {
+    let message: AIMessage
+    let onGo: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            if message.role == .me { Spacer(minLength: 40) }
+            if message.role == .ai { avatar(ai: true) }
+
+            VStack(alignment: message.role == .me ? .trailing : .leading, spacing: 6) {
+                if !message.steps.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(message.steps) { step in
+                            StepRow(step: step)
+                        }
+                    }
+                }
+
+                Text(message.text)
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(message.role == .me ? .white : .primary)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(10)
+                    .background(bubbleBg, in: RoundedRectangle(cornerRadius: 10))
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.divider, lineWidth: 1))
+
+                if message.awaitingApproval {
+                    Label(L10n.t("这是计划，还没有执行任何删除", "This is a plan — nothing has been deleted"),
+                          systemImage: "hand.raised.fill")
+                        .font(.system(size: 10.5, weight: .medium))
+                        .foregroundStyle(Theme.riskUserDataText)
+                        .padding(.horizontal, 8).padding(.vertical, 4)
+                        .background(Theme.riskUserDataBg, in: Capsule())
+                        .overlay(Capsule().stroke(Theme.riskUserDataBorder, lineWidth: 1))
+                }
+
+                if let tab = message.redirect {
+                    Button { onGo() } label: {
+                        Label(L10n.t("前往 \(tab.displayName)", "Go to \(tab.displayName)"),
+                              systemImage: "arrow.forward")
+                            .font(.system(size: 11.5, weight: .medium))
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                    .tint(Theme.accent)
+                }
+            }
+
+            if message.role == .me { avatar(ai: false) }
+            if message.role == .ai { Spacer(minLength: 40) }
+        }
+    }
+
+    private var bubbleBg: some ShapeStyle {
+        message.role == .me
+            ? LinearGradient(colors: [Theme.accent, Theme.accentActive],
+                            startPoint: .topLeading, endPoint: .bottomTrailing)
+            : LinearGradient(colors: [Theme.bgSurface, Theme.bgSurface],
+                            startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
+
+    private func avatar(ai: Bool) -> some View {
+        Circle()
+            .fill(ai
+                  ? LinearGradient(colors: [Theme.aiPrimary, Theme.aiDeep],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing)
+                  : LinearGradient(colors: [Theme.accent, Theme.accentActive],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing))
+            .frame(width: 26, height: 26)
+            .overlay(Image(systemName: ai ? "sparkles" : "person.fill")
+                .font(.system(size: 11, weight: .bold)).foregroundStyle(.white))
+    }
+}
+
+/// 一步执行记录：命令 + 结果。Agent 做了什么必须原样摆出来。
+private struct StepRow: View {
+    let step: AgentStep
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 5) {
+                Image(systemName: step.ok ? "terminal" : "exclamationmark.triangle.fill")
+                    .font(.system(size: 9))
+                Text(step.command)
+                    .font(.system(size: 10, design: .monospaced))
+                if step.risk == .destructive {
+                    Text(L10n.t("预演", "preview"))
+                        .font(.system(size: 8.5, weight: .semibold))
+                        .padding(.horizontal, 4).padding(.vertical, 1)
+                        .background(Theme.riskUserDataBg, in: RoundedRectangle(cornerRadius: 3))
+                        .foregroundStyle(Theme.riskUserDataText)
+                }
+            }
+            .foregroundStyle(step.ok ? Theme.aiText : Theme.riskUncertainText)
+
+            Text(step.summary)
+                .font(.system(size: 10))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 9).padding(.vertical, 6)
+        .frame(maxWidth: 460, alignment: .leading)
+        .background(step.ok ? Theme.aiBg : Theme.riskUncertainBg, in: RoundedRectangle(cornerRadius: 7))
+        .overlay(RoundedRectangle(cornerRadius: 7)
+            .stroke(step.ok ? Theme.aiBorder : Theme.riskUncertainBorder, lineWidth: 1))
+    }
+}
+
+/// 思考中：把已经跑完的步骤和正在跑的命令都摆出来，不让用户对着转圈猜。
+private struct ThinkingBubble: View {
+    let steps: [AgentStep]
+    let running: String?
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            avatar
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(steps) { StepRow(step: $0) }
+                HStack(spacing: 6) {
+                    ProgressView().controlSize(.small)
+                    if let running {
+                        Text(running)
+                            .font(.system(size: 10.5, design: .monospaced))
+                            .foregroundStyle(Theme.aiText)
+                    } else {
+                        Text(L10n.t("Agent 思考中…", "The agent is thinking…"))
+                            .font(.system(size: 12)).foregroundStyle(.secondary)
+                    }
+                }
+                .padding(10)
+                .background(Theme.bgSurface, in: RoundedRectangle(cornerRadius: 10))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.divider, lineWidth: 1))
+            }
+            Spacer(minLength: 40)
+        }
+    }
+
+    private var avatar: some View {
+        Circle()
+            .fill(LinearGradient(colors: [Theme.aiPrimary, Theme.aiDeep],
+                                startPoint: .topLeading, endPoint: .bottomTrailing))
+            .frame(width: 26, height: 26)
+            .overlay(Image(systemName: "sparkles")
+                .font(.system(size: 11, weight: .bold)).foregroundStyle(.white))
+    }
+}
+
+// MARK: - skill 清单
+
+/// 把 Agent 的能力边界摊开给用户看 —— 「它能干什么」不该是黑箱。
+private struct SkillCatalogSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(L10n.t("Agent 能调用的 skill", "Skills the agent can call"))
+                        .font(.system(size: 15, weight: .semibold))
+                    Text(L10n.t("共 \(SkillRegistry.all.count) 个。清单之外的任何指令都会被拒绝执行。",
+                                "\(SkillRegistry.all.count) in total. Anything outside this list is refused."))
+                        .font(.system(size: 11)).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button(L10n.t("完成", "Done")) { dismiss() }
+                    .keyboardShortcut(.defaultAction)
+            }
+            .padding(16)
+            Divider()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(SkillRegistry.specs, id: \.name) { spec in
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 6) {
+                                Text(spec.name)
+                                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                                riskTag(spec.risk)
+                                Spacer()
+                                Text("expunge \(spec.cli)")
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .foregroundStyle(.tertiary)
+                            }
+                            Text(spec.summary)
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                            ForEach(spec.args, id: \.name) { arg in
+                                Text("· \(arg.name)\(arg.required ? "*" : "") — \(arg.desc)")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.tertiary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                        .padding(10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Theme.bgSurface, in: RoundedRectangle(cornerRadius: 8))
+                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.divider, lineWidth: 1))
+                    }
+                }
+                .padding(16)
+            }
+            .background(Theme.bgCanvas)
+        }
+        .frame(width: 620, height: 520)
+    }
+
+    private func riskTag(_ risk: SkillRisk) -> some View {
+        let (bg, fg, border): (Color, Color, Color) = {
+            switch risk {
+            case .readOnly:    return (Theme.riskSafeBg, Theme.riskSafeText, Theme.riskSafeBorder)
+            case .mutating:    return (Theme.aiBg, Theme.aiText, Theme.aiBorder)
+            case .destructive: return (Theme.riskUserDataBg, Theme.riskUserDataText, Theme.riskUserDataBorder)
+            }
+        }()
+        return Text(risk.label)
+            .font(.system(size: 9, weight: .medium))
+            .padding(.horizontal, 6).padding(.vertical, 2)
+            .background(bg, in: Capsule())
+            .overlay(Capsule().stroke(border, lineWidth: 1))
+            .foregroundStyle(fg)
+    }
+}
