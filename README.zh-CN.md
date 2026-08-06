@@ -8,6 +8,11 @@
 
 **删除一律走废纸篓**——判错了随时拖回来。
 
+> **系统要求：** macOS 14 (Sonoma) 及以上。支持 Intel 和 Apple Silicon。[为什么需要 macOS 14？](#系统要求)
+
+<!-- TODO: 插入主界面截图 -->
+<!-- ![Expunge 主界面](screenshots/main.png) -->
+
 ---
 
 ## 功能
@@ -15,14 +20,26 @@
 ### 🧹 深度卸载
 选中一个应用，Expunge 找出和它有关的一切。不只是 `.app` 包体——依赖、偏好设置、缓存、日志、容器、包管理器安装的 CLI 工具，全部列出。确认一次，全部清掉。
 
+<!-- TODO: 插入深度卸载截图 -->
+<!-- ![深度卸载](screenshots/uninstall.png) -->
+
 ### 🔍 孤儿残留扫描
 几个月前删掉的应用，数据往往还留在 `~/Library` 里。孤儿扫描反向查找：哪些目录已经没有活着的 app 认领？找出你根本不知道还存在的残留。
+
+<!-- TODO: 插入孤儿扫描截图 -->
+<!-- ![孤儿扫描](screenshots/orphans.png) -->
 
 ### 🤖 AI Agent（问 AI）
 用自然语言描述目标——「把 Cursor 彻底卸干净」或「扫一遍所有残留」——内置 AI Agent 会自己调用相应 skill、查看结果、出计划。**任何删除操作都要你确认后才执行。**用 `/remember` 记下纠正过的结论，跨会话也不会丢。
 
+<!-- TODO: 插入 AI Agent 截图 -->
+<!-- ![AI Agent](screenshots/agent.png) -->
+
 ### 🖥️ 进程管理
 列出 Mac 上所有后台服务类进程——node 服务、Python 脚本、Docker 容器、Brew service。显示内存占用、CPU%、**监听端口**（如 `:3000`、`:8080`）。按端口号搜索，精确找到占用端口的进程，一键结束。
+
+<!-- TODO: 插入进程管理截图 -->
+<!-- ![进程管理](screenshots/processes.png) -->
 
 ### 🛡️ 安全设计
 - **默认走废纸篓。** 绝不直接 `rm`。清空废纸篓前都能找回。
@@ -123,6 +140,18 @@ Expunge 覆盖 16 类残留：
 **和 AppCleaner / CleanMyMac 比呢？** 那些是闭源的，有的是付费软件。Expunge 开源免费，且集成了包管理器清理、孤儿扫描、AI 辅助、进程管理于一体。
 
 **可以再分发吗？** 可以。MIT 协议，见 [LICENSE](LICENSE)。
+
+---
+
+## 系统要求
+
+| 要求 | 最低配置 |
+|------|---------|
+| macOS | **14.0 (Sonoma)** 及以上 |
+| 架构 | Intel (x86-64) 或 Apple Silicon (arm64) |
+| 磁盘 | 约 25 MB 安装空间 |
+
+> **为什么需要 macOS 14？** Expunge 使用了 Sonoma 引入的 SwiftUI API——`.onKeyPress` 处理键盘输入（回车发送/方向键导航/Tab 补全），以及新版 `.onChange(of:)` 闭包语法。降级到 macOS 13 需要替换这些 API，对小型项目维护成本过高。Sonoma 于 2023 年发布，覆盖了 2018 年及以后的所有 Mac。
 
 ---
 
