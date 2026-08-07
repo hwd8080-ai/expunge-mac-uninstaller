@@ -152,8 +152,8 @@ struct ExpungeApp: App {
         .windowResizability(.contentMinSize)
         .commands {
             CommandGroup(replacing: .help) {
-                Link(L10n.t("Expunge 主页", "Expunge Homepage"), destination: URL(string: "https://github.com/hwd8080/expunge-mac-uninstaller")!)
-                Link(L10n.t("提交 Bug 或建议", "Report a Bug or Suggestion"), destination: URL(string: "https://github.com/hwd8080/expunge-mac-uninstaller/issues")!)
+                Link(L10n.t("Expunge 主页", "Expunge Homepage"), destination: URL(string: "https://github.com/hwd8080-ai/expunge-mac-uninstaller")!)
+                Link(L10n.t("提交 Bug 或建议", "Report a Bug or Suggestion"), destination: URL(string: "https://github.com/hwd8080-ai/expunge-mac-uninstaller/issues")!)
                 Divider()
                 Button(L10n.t("关于 Expunge", "About Expunge")) {
                     state.showAbout = true
@@ -172,9 +172,12 @@ struct ExpungeApp: App {
             CommandMenu(L10n.t("设置", "Settings")) {
                 Toggle(L10n.t("扫描「下载」文件夹", "Scan the Downloads folder"),
                        isOn: $scanDownloads)
-                Text(L10n.t("打开后能找到手动下载的命令行工具，但每次扫描都会触发一次系统授权框。",
-                            "Finds manually downloaded CLI tools, but triggers a system permission prompt on every scan."))
-                    .font(.caption)
+                    .help(L10n.t("打开后在扫描时检查 ~/Downloads 目录，能找到手动下载的命令行工具。每次扫描会触发一次系统授权弹窗。",
+                                 "When on, Expunge also scans ~/Downloads for manually downloaded CLI tools. Triggers one system permission prompt per scan."))
+                Divider()
+                Button(L10n.t("配置 AI 模型…", "Configure AI model…")) {
+                    state.showAIModelSettings = true
+                }
             }
         }
     }

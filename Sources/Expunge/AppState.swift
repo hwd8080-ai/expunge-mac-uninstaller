@@ -166,6 +166,8 @@ final class AppState: ObservableObject {
 
     /// 「关于 Expunge」面板是否打开（由菜单栏 Help → 关于 Expunge 触发）。
     @Published var showAbout: Bool = false
+    /// AI 模型设置面板（菜单栏 设置 → 配置 AI 模型… 触发）。
+    @Published var showAIModelSettings: Bool = false
 
     /// 监听语言切换，触发整棵视图树重建，使 L10n.t() 重新求值。
     private var cancellables = Set<AnyCancellable>()

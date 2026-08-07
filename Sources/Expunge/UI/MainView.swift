@@ -33,6 +33,9 @@ struct MainView: View {
         .sheet(isPresented: $state.showAbout) {
             AboutSheet()
         }
+        .sheet(isPresented: $state.showAIModelSettings) {
+            AIModelSettingsSheet()
+        }
     }
 
     // MARK: - 侧栏
