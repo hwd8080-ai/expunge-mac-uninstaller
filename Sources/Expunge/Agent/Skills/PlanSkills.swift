@@ -12,8 +12,8 @@ struct ReviewPlanSkill: AgentSkill {
     let spec = SkillSpec(
         name: "review_plan",
         cli: "--review <target>",
-        summary: L10n.t("对当前清单做安全复核：挑出不该删的项（登录态、密钥、被其它应用共享的数据）并说明理由，自动取消其勾选。",
-                        "Safety-review the current list: flag items that should be kept (login state, keys, data shared with other apps), explain why, and uncheck them."),
+        summaryZh: "对当前清单做安全复核：挑出不该删的项（登录态、密钥、被其它应用共享的数据）并说明理由，自动取消其勾选。",
+        summaryEn: "Safety-review the current list: flag items that should be kept (login state, keys, data shared with other apps), explain why, and uncheck them.",
         args: [
             SkillArg(name: "scope", required: false,
                      desc: L10n.t("apps 复核应用清单（默认），leftovers 复核残留清单",
@@ -105,8 +105,8 @@ struct PlanUninstallSkill: AgentSkill {
     let spec = SkillSpec(
         name: "plan_uninstall",
         cli: "--uninstall <target> --dry-run",
-        summary: L10n.t("为卸载某个应用生成执行计划：会删哪些、共多大、哪些进废纸篓。只预演，不删除。",
-                        "Draft an uninstall plan for an app: what would be removed, how large, what goes to the Trash. Preview only, nothing is deleted."),
+        summaryZh: "为卸载某个应用生成执行计划：会删哪些、共多大、哪些进废纸篓。只预演，不删除。",
+        summaryEn: "Draft an uninstall plan for an app: what would be removed, how large, what goes to the Trash. Preview only, nothing is deleted.",
         args: [
             SkillArg(name: "target", required: true,
                      desc: L10n.t("应用名或关键词", "App name or keyword")),

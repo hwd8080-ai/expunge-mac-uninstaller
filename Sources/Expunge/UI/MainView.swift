@@ -9,6 +9,9 @@ struct MainView: View {
     @EnvironmentObject var state: AppState
     @State private var showHistory = false
     @State private var showFeedback = false
+    // 直接订阅语言键 —— AppState 也会推 objectWillChange，但本视图里的 DiskCard
+    // 嵌套较深、SwiftUI 不一定传透。这里双保险：自己再观察一次，切换时强制重建。
+    @AppStorage("expunge.language") private var languageRaw: String = L10n.Language.system.rawValue
 
     var body: some View {
         // 不用 NavigationSplitView：它在 macOS 上的自动布局黑盒经常触发

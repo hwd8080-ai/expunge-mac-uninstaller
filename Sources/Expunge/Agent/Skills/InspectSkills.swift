@@ -10,8 +10,8 @@ struct ListAppsSkill: AgentSkill {
     let spec = SkillSpec(
         name: "list_apps",
         cli: "--list",
-        summary: L10n.t("列出本机已安装的应用，可用关键词过滤。想确认某个 app 的准确名字时先调它。",
-                        "List installed apps, optionally filtered by keyword. Call this first to confirm an app's exact name."),
+        summaryZh: "列出本机已安装的应用，可用关键词过滤。想确认某个 app 的准确名字时先调它。",
+        summaryEn: "List installed apps, optionally filtered by keyword. Call this first to confirm an app's exact name.",
         args: [
             SkillArg(name: "keyword", required: false,
                      desc: L10n.t("过滤关键词，留空返回全部（截断展示）",
@@ -58,8 +58,8 @@ struct ScanAppSkill: AgentSkill {
     let spec = SkillSpec(
         name: "scan_app",
         cli: "--scan <target>",
-        summary: L10n.t("扫描某个应用留在系统里的全部痕迹（程序本体、缓存、容器、启动项、包管理器条目…），不删任何东西。",
-                        "Scan everything an app left behind (bundle, caches, containers, launch agents, package entries…). Deletes nothing."),
+        summaryZh: "扫描某个应用留在系统里的全部痕迹（程序本体、缓存、容器、启动项、包管理器条目…），不删任何东西。",
+        summaryEn: "Scan everything an app left behind (bundle, caches, containers, launch agents, package entries…). Deletes nothing.",
         args: [
             SkillArg(name: "target", required: true,
                      desc: L10n.t("应用名或关键词，如 Cursor、微信、mimo",
@@ -121,8 +121,8 @@ struct ScanLeftoversSkill: AgentSkill {
     let spec = SkillSpec(
         name: "scan_leftovers",
         cli: "--orphans",
-        summary: L10n.t("反向扫描：找已卸载应用留下的无主数据，以及已知 AI 编程工具的痕迹。结果是启发式的，默认全不勾选。",
-                        "Reverse scan for data left by uninstalled apps plus known AI coding-tool traces. Heuristic; nothing is checked by default."),
+        summaryZh: "反向扫描：找已卸载应用留下的无主数据，以及已知 AI 编程工具的痕迹。结果是启发式的，默认全不勾选。",
+        summaryEn: "Reverse scan for data left by uninstalled apps plus known AI coding-tool traces. Heuristic; nothing is checked by default.",
         args: [
             SkillArg(name: "kind", required: false,
                      desc: L10n.t("限定来源：orphan 只看无主残留，ai 只看 AI 工具，all 全要（默认）",
@@ -175,8 +175,8 @@ struct ListProcessesSkill: AgentSkill {
     let spec = SkillSpec(
         name: "list_processes",
         cli: "--ps",
-        summary: L10n.t("列出正在运行的进程（默认只看用户级后台进程，如 node / python / dev server）。只枚举，不结束任何进程。",
-                        "List running processes (user-level background ones like node / python / dev servers by default). Enumerates only; kills nothing."),
+        summaryZh: "列出正在运行的进程（默认只看用户级后台进程，如 node / python / dev server）。只枚举，不结束任何进程。",
+        summaryEn: "List running processes (user-level background ones like node / python / dev servers by default). Enumerates only; kills nothing.",
         args: [
             SkillArg(name: "filter", required: false,
                      desc: L10n.t("background 只看后台（默认）、user 含 GUI 应用、system 含系统进程",
@@ -237,8 +237,8 @@ struct ShowHistorySkill: AgentSkill {
     let spec = SkillSpec(
         name: "show_history",
         cli: "--history",
-        summary: L10n.t("查看以往的卸载记录（目标、时间、成功/失败项数、释放量）。",
-                        "Show past uninstall records (target, time, success/failure counts, space freed)."),
+        summaryZh: "查看以往的卸载记录（目标、时间、成功/失败项数、释放量）。",
+        summaryEn: "Show past uninstall records (target, time, success/failure counts, space freed).",
         args: [
             SkillArg(name: "limit", required: false,
                      desc: L10n.t("最多返回几条，默认 10", "Max entries, default 10"))

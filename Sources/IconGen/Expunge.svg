@@ -1,21 +1,43 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 240 240">
   <defs>
-    <linearGradient id="g2" x1="0" y1="1" x2="1" y2="0">
-      <stop offset="0" stop-color="#0E6C9E"/>
+    <!-- Petrol Blue 渐变，与 UI 品牌区一致 -->
+    <linearGradient id="brandGradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1B8DC9"/>
       <stop offset="1" stop-color="#073A56"/>
     </linearGradient>
   </defs>
-  <rect width="240" height="240" rx="54" fill="url(#g2)"/>
-  <g stroke="#fff" stroke-width="13" stroke-linecap="round">
-    <line x1="158" y1="62" x2="96" y2="158"/>
+
+  <!-- 圆角方形背景，cornerRadius 70 / 240 ≈ 29%，匹配 UI 品牌区的小头像比例 -->
+  <rect width="240" height="240" rx="70" fill="url(#brandGradient)"/>
+
+  <!-- 主体：wand.and.rays 风格的「清理魔法棒 + 散落星点」组合 -->
+  <!-- 棒身（左下到右上，45°） -->
+  <g stroke="#FFFFFF" stroke-width="14" stroke-linecap="round" fill="none">
+    <line x1="78" y1="162" x2="158" y2="82"/>
   </g>
-  <g fill="#fff">
-    <path d="M96,150 L74,196 L120,196 Z"/>
-    <rect x="74" y="190" width="50" height="12" rx="6" transform="rotate(8 99 196)"/>
+
+  <!-- 星形主体（棒头上方，四角放射） -->
+  <g fill="#FFFFFF">
+    <!-- 中心圆点 -->
+    <circle cx="168" cy="72" r="13"/>
+    <!-- 四个尖角 -->
+    <path d="M 168 36 L 175 60 L 168 56 L 161 60 Z"/>
+    <path d="M 204 72 L 180 79 L 184 72 L 180 65 Z"/>
+    <path d="M 168 108 L 161 84 L 168 88 L 175 84 Z"/>
+    <path d="M 132 72 L 156 65 L 152 72 L 156 79 Z"/>
   </g>
-  <g fill="#ffffff" opacity="0.7">
-    <circle cx="70" cy="178" r="3"/>
-    <circle cx="62" cy="188" r="2.5"/>
-    <circle cx="128" cy="186" r="2.5"/>
+
+  <!-- 棒尾（左下）的扫帚穗（视觉收尾，呼应「扫除」） -->
+  <g fill="#FFFFFF" opacity="0.85">
+    <path d="M 78 162 L 56 184 L 84 184 L 92 168 Z"/>
+    <path d="M 70 174 L 52 198 L 88 198 Z"/>
+  </g>
+
+  <!-- 散落的小星点（点缀氛围） -->
+  <g fill="#FFFFFF" opacity="0.55">
+    <circle cx="50" cy="60" r="3.5"/>
+    <circle cx="200" cy="200" r="3"/>
+    <circle cx="46" cy="160" r="2.5"/>
+    <circle cx="196" cy="50" r="2.5"/>
   </g>
 </svg>

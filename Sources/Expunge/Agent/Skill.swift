@@ -157,13 +157,21 @@ protocol AgentSkill {
 }
 
 /// skill 的静态声明部分。注册表靠它生成模型清单和 `--skills` 输出。
+///
+/// `summaryZh` / `summaryEn` 是双语原文，`summary` 按当前语言取 —— 不能直接
+/// 存 `summary: String` 然后在 init 里调 `L10n.t()`，那会在 struct 首次实例化
+/// 时把一种语言固化成 String，再切换语言也不变。
 struct SkillSpec {
     let name: String
     /// 对应的真实 Expunge CLI 命令（自检会核对它确实被 `--help` 收录）。
     let cli: String
-    let summary: String
+    let summaryZh: String
+    let summaryEn: String
     var args: [SkillArg] = []
     var risk: SkillRisk = .readOnly
+
+    /// 跟随客户端语言取文案。其他读取处请用这个，不要直接读 `summaryZh` / `summaryEn`。
+    var summary: String { L10n.t(summaryZh, summaryEn) }
 
     /// 生成给模型看的一行声明。
     var manifestLine: String {
