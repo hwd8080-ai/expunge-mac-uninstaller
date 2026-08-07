@@ -6,7 +6,7 @@
 
 免费、开源、彻底。卸载任何 Mac 应用的同时，扫清它留下的所有痕迹：Homebrew 公式、npm/pipx 包、沙箱容器、launch agent、shell 配置污染、点文件、缓存……16 类扫描器，一次覆盖。
 
-**删除一律走废纸篓**——判错了随时拖回来。
+**用户数据进废纸篓**（聊天记录、配置、账号等，可找回），缓存和系统文件直接删除。
 
 > **系统要求：** macOS 14 (Sonoma) 及以上。支持 Intel 和 Apple Silicon。[为什么需要 macOS 14？](#系统要求)
 
@@ -37,7 +37,7 @@
 ![进程管理](screenshots/processesCN.png)
 
 ### 🛡️ 安全设计
-- **默认走废纸篓。** 绝不直接 `rm`。清空废纸篓前都能找回。
+- **用户数据走废纸篓。** 聊天记录、配置、账号等可恢复。缓存和系统文件确认后直接删除。
 - **没有通用 shell。** AI Agent 只能调用预定义的只读 skill，不能执行任意命令、不能读任意文件、不能联网。
 - **执行前必确认。** 每次删除操作都要确认，不做静默操作。
 - **系统保护。** 关键系统进程和路径在白名单里，永远不会被删。
@@ -49,7 +49,7 @@
 
 ### 下载 DMG（推荐）
 
-从 [Releases](https://github.com/expunge-mac/expunge-mac-uninstaller/releases) 下载 `Expunge-<版本>.dmg` 和同名 `.sha256`。先校验：
+从 [Releases](https://github.com/hwd8080-ai/hwd8080-ai-uninstaller/releases) 下载 `Expunge-<版本>.dmg` 和同名 `.sha256`。先校验：
 
 ```bash
 shasum -a 256 -c Expunge-<版本>.dmg.sha256   # 应输出 OK
@@ -60,8 +60,8 @@ shasum -a 256 -c Expunge-<版本>.dmg.sha256   # 应输出 OK
 ### 从源码构建
 
 ```bash
-git clone https://github.com/expunge-mac/expunge-mac-uninstaller.git
-cd expunge-mac-uninstaller
+git clone https://github.com/hwd8080-ai/hwd8080-ai-uninstaller.git
+cd hwd8080-ai-uninstaller
 ./build_app.sh                       # → /Applications/Expunge.app
 open /Applications/Expunge.app
 ```
@@ -128,7 +128,7 @@ Expunge 覆盖 16 类残留：
 
 ## 常见问题
 
-**安全吗？** 安全。文件进废纸篓而非直接删除，系统路径受保护，每次删除都要确认。
+**安全吗？** 安全。用户数据（聊天记录、配置、账号）进废纸篓可找回；缓存和系统文件确认后直接删除。系统路径受保护，每次删除都要确认。
 
 **会上传数据吗？** 不会。无埋点、无遥测、无网络请求。全部本地处理。
 

@@ -6,7 +6,7 @@
 
 Free, open-source, and thorough. Uninstall any Mac app — and sweep up every trace it left behind: Homebrew formulas, npm/pipx packages, sandbox containers, launch agents, shell config pollution, dotfiles, caches, and more. 16 scanner categories, zero leftovers.
 
-**Everything goes to Trash by default** — undo anytime.
+**User data goes to Trash** — chat logs, configs, accounts stay recoverable. Caches and system files are permanently removed so they don't clutter your machine.
 
 > **System Requirements:** macOS 14 (Sonoma) or later. Intel & Apple Silicon. [Why macOS 14?](#system-requirements)
 
@@ -37,7 +37,7 @@ See every background process running on your Mac — node servers, Python script
 ![Process manager](screenshots/processes.png)
 
 ### 🛡️ Safety by Design
-- **Trash, never delete.** Everything goes to Trash first. Empty it when you're ready.
+- **User data → Trash.** Chat logs, config files, and account data go to Trash — recoverable until you empty it. Caches and system files are removed permanently.
 - **No shell access.** The AI agent can only call predefined, read-only skills. It can't run arbitrary commands, read arbitrary files, or access the network.
 - **Confirmation required.** Every removal action asks for confirmation. No silent deletions.
 - **System protection.** Critical system processes and paths are whitelisted and can never be removed.
@@ -49,7 +49,7 @@ See every background process running on your Mac — node servers, Python script
 
 ### Download DMG (Recommended)
 
-Download `Expunge-<version>.dmg` and its `.sha256` from [Releases](https://github.com/expunge-mac/expunge-mac-uninstaller/releases). Verify first:
+Download `Expunge-<version>.dmg` and its `.sha256` from [Releases](https://github.com/hwd8080-ai/hwd8080-ai-uninstaller/releases). Verify first:
 
 ```bash
 shasum -a 256 -c Expunge-<version>.dmg.sha256   # Should print OK
@@ -60,8 +60,8 @@ Open the DMG, drag Expunge to Applications. First launch: **right-click → Open
 ### Build from Source
 
 ```bash
-git clone https://github.com/expunge-mac/expunge-mac-uninstaller.git
-cd expunge-mac-uninstaller
+git clone https://github.com/hwd8080-ai/hwd8080-ai-uninstaller.git
+cd hwd8080-ai-uninstaller
 ./build_app.sh                       # → /Applications/Expunge.app
 open /Applications/Expunge.app
 ```
@@ -100,7 +100,7 @@ Expunge scans across 16 categories:
 | Preferences | `~/Library/Preferences` plists |
 | Logs | `~/Library/Logs` |
 | Auth tokens | Keychain-adjacent credential files |
-| AI tool data | Claude Code, Cursor, Windsurf, Copilot, +20 more |
+| AI tool data | Claude Code, Cursor, Windsurf, Copilot, and 20+ more |
 | Orphaned data | Library dirs with no owning app |
 | XDG dirs | `~/.config`, `~/.local/share` |
 | MAS receipts | Mac App Store install records |
@@ -128,7 +128,7 @@ All skills are read-only by default. The agent drafts plans — you approve remo
 
 ## FAQ
 
-**Is it safe?** Yes. Files go to Trash, not `/dev/null`. System paths are protected. Every deletion requires confirmation.
+**Is it safe?** Yes. User data (chat logs, configs, accounts) goes to Trash — recoverable. Caches and system files are permanently removed after confirmation. System paths are protected. Never fully automated.
 
 **Does it phone home?** No. No analytics, no telemetry, no network requests. All processing is local.
 
