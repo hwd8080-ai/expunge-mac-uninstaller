@@ -109,14 +109,10 @@ struct AskAIView: View {
         }
     }
 
-    // 头部右侧：当前是否已配好模型。没配好时点击直接跳去设置。
+    // 头部右侧：当前使用的模型。未配置时点击去设置；已配置时可切换默认/具体模型。
     private var modelStatusPill: some View {
         Group {
-            if let cfg = state.activeConfig {
-                pill(text: L10n.t("模型：\(ModelConfigStore.displayName(cfg))",
-                                  "Model: \(ModelConfigStore.displayName(cfg))"),
-                     bg: Theme.aiBg, border: Theme.aiBorder, fg: Theme.aiText)
-            } else {
+            if state.modelStore.selectable.isEmpty {
                 Button {
                     showSettings = true
                 } label: {
@@ -126,21 +122,58 @@ struct AskAIView: View {
                 }
                 .buttonStyle(.plain)
                 .help(L10n.t("点此去配置模型（需要 API Key）", "Tap to configure a model (API key required)"))
+            } else {
+                Menu {
+                    Picker(selection: Binding(
+                        get: { state.modelStore.activeID },
+                        set: { state.modelStore.activeID = $0 }
+                    )) {
+                        Text(L10n.t("默认模型", "Default model")).tag(Optional<UUID>.none)
+                        Divider()
+                        ForEach(state.modelStore.selectable) { p in
+                            Text(ModelConfigStore.displayName(p)).tag(p.id as UUID?)
+                        }
+                    } label: { EmptyView() }
+                    .pickerStyle(.inline)
+
+                    Divider()
+
+                    Button {
+                        showSettings = true
+                    } label: {
+                        Label(L10n.t("管理模型…", "Manage models…"), systemImage: "gearshape")
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(currentModelLabel)
+                            .font(.system(size: 10))
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 8, weight: .bold))
+                    }
+                    .padding(.horizontal, 8).padding(.vertical, 3)
+                    .background(Theme.aiBg, in: Capsule())
+                    .overlay(Capsule().stroke(Theme.aiBorder, lineWidth: 1))
+                    .foregroundStyle(Theme.aiText)
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .help(L10n.t("切换当前对话使用的模型", "Switch the model used for this chat"))
             }
         }
+    }
+
+    /// 顶部 Pill 上显示的模型名：未手动切换时显示「默认模型」，否则显示具体档名。
+    private var currentModelLabel: String {
+        if state.modelStore.activeID == nil { return L10n.t("默认模型", "Default model") }
+        if let p = state.modelStore.selectable.first(where: { $0.id == state.modelStore.activeID }) {
+            return ModelConfigStore.displayName(p)
+        }
+        return L10n.t("默认模型", "Default model")
     }
 
     /// 已配置至少一个模型档 —— 这是「问 AI」能跑的前提。
     private var modelReady: Bool {
         state.modelReady
-    }
-
-    /// 对话框顶部的模型下拉：绑定到当前活动档（activeID）。
-    private var activeIDBinding: Binding<UUID?> {
-        Binding(
-            get: { state.modelStore.active?.id },
-            set: { id in if let id { state.modelStore.activeID = id } }
-        )
     }
 
     private var slashMatches: [SlashCommandItem] { ChatCommand.suggestions(for: input) }
@@ -355,25 +388,6 @@ struct AskAIView: View {
 
     private var composer: some View {
         VStack(spacing: 0) {
-            // 已配了多个模型档时，在输入框上方给一个下拉，随时切换回答用的模型。
-            if state.modelStore.selectable.count > 1 {
-                HStack(spacing: 6) {
-                    Image(systemName: "cpu")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                    Picker(selection: activeIDBinding) {
-                        ForEach(state.modelStore.selectable) { p in
-                            Text(ModelConfigStore.displayName(p)).tag(p.id as UUID?)
-                        }
-                    } label: { EmptyView() }
-                    .pickerStyle(.menu)
-                    .controlSize(.small)
-                    .frame(width: 240)
-                    Spacer(minLength: 0)
-                }
-                .padding(.horizontal, 12)
-                .padding(.top, 8)
-            }
             Divider()
             ZStack(alignment: .topLeading) {
                 HStack(alignment: .bottom, spacing: 10) {
