@@ -409,7 +409,10 @@ struct AskAIView: View {
                              selection: slashSelection,
                              onHover: { slashSelection = $0 },
                              onPick:  { acceptSlash($0) })
-                    .padding(.horizontal, 10)
+                    // 左缩进与输入框一致(10)；右侧留出「发送按钮(26)+间距(10)+输入框右缩进(10)」，
+                    // 否则面板会吃掉按钮那一段宽度而显得比输入框宽。
+                    .padding(.leading, 10)
+                    .padding(.trailing, 46)
                     .padding(.top, 6)
                     .padding(.bottom, 4)
                     .transition(.opacity)
@@ -840,40 +843,18 @@ private struct SlashPalette: View {
     let onHover: (Int) -> Void
     let onPick: (SlashCommandItem) -> Void
 
-    /// 按分组聚合，分组顺序遵循 `SlashSection.allCases`，组内沿用 `palette` 既定顺序。
-    private var groups: [(section: SlashSection, items: [SlashCommandItem])] {
-        SlashSection.allCases.compactMap { sec in
-            let its = items.filter { $0.section == sec }
-            return its.isEmpty ? nil : (sec, its)
-        }
-    }
-
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    ForEach(Array(groups.enumerated()), id: \.element.section.rawValue) { gIdx, group in
-                        // 分组标题小字
-                        Text(group.section.title)
-                            .font(.system(size: 10, weight: .semibold, design: .rounded))
-                            .foregroundStyle(.tertiary)
-                            .padding(.horizontal, 14)
-                            .padding(.top, gIdx == 0 ? 10 : 12)
-                            .padding(.bottom, 5)
-
-                        ForEach(Array(group.items.enumerated()), id: \.element.id) { _, item in
-                            let flat = items.firstIndex(where: { $0.id == item.id }) ?? 0
-                            row(item, active: flat == selection)
-                                .id(item.id)
-                                .contentShape(Rectangle())
-                                .onHover { if $0 { onHover(flat) } }
-                                .onTapGesture { onPick(item) }
-                        }
-
-                        if gIdx < groups.count - 1 {
-                            Divider().opacity(0.5)
-                                .padding(.vertical, 8)
-                                .padding(.horizontal, 14)
+                    ForEach(Array(items.enumerated()), id: \.element.id) { idx, item in
+                        row(item, active: idx == selection)
+                            .id(item.id)
+                            .contentShape(Rectangle())
+                            .onHover { if $0 { onHover(idx) } }
+                            .onTapGesture { onPick(item) }
+                        if idx < items.count - 1 {
+                            Divider().opacity(0.5).padding(.horizontal, 14)
                         }
                     }
                 }
@@ -887,7 +868,8 @@ private struct SlashPalette: View {
                 }
             }
         }
-        // 面板整体：大圆角 + 极淡描边 + 柔和投影，去掉生硬的方框边。
+        // 面板整体：大圆角 + 极淡描边 + 柔和投影，去掉生硬的方框边；
+        // 宽度跟随容器，调用方已把它对齐到输入框（留出右侧发送按钮的位置）。
         .frame(maxWidth: .infinity, maxHeight: 220)
         .background(Theme.bgSurface, in: RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.divider.opacity(0.7), lineWidth: 0.5))
