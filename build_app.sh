@@ -1,15 +1,15 @@
 #!/bin/bash
 # build_app.sh — 一键编译 release 并打成 .app bundle
 # 用法：./build_app.sh [目标路径]
-#   默认输出到 /Applications/Expunge.app（Finder 侧栏「应用程序」和 Launchpad 都能看到）
+#   默认输出到 /Applications/AIMacCleaner.app（Finder 侧栏「应用程序」和 Launchpad 都能看到）
 #   装到 ~/Applications 也可以，但两处同时存在会让 Launchpad 出现重复图标
 set -e
 
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
-TARGET="${1:-/Applications/Expunge.app}"
-APP_NAME="Expunge"
+TARGET="${1:-/Applications/AIMacCleaner.app}"
+APP_NAME="AIMacCleaner"
 # 版本号只在这里写一次。build_release.sh 会 source 本文件的这个值来命名 DMG，
-# 所以改版本只需改这一处。（v1.3 之前这里写死成 1.1，`--scan Expunge` 一直
+# 所以改版本只需改这一处。（v1.3 之前这里写死成 1.1，`--scan AIMacCleaner` 一直
 # 显示 v1.1 —— 打包元数据和 README 各说各话是典型的失实。）
 APP_VERSION="1.0"
 
@@ -28,11 +28,11 @@ test -f "$BIN" || { echo "✗ 编译产物未找到: $BIN"; exit 1; }
 
 echo "━━ 2/5 生成 icon ━━"
 ICON_DIR="$(mktemp -d)"
-# 图标源图：Sources/IconGen/Expunge.png（1024x1024）。
+# 图标源图：Sources/IconGen/AIMacCleaner.png（1024x1024）。
 # 想换图标：编辑 Sources/IconGen/render.swift 后跑 `swift Sources/IconGen/render.swift`。
 # render 脚本渲染的是与 UI 顶部品牌区完全一致的 wand.and.rays SF Symbol
 # + Petrol Blue 渐变 + 圆角矩形（cornerRadius 1024*7/24）。
-ICON_PNG="$PROJECT_DIR/Sources/IconGen/Expunge.png"
+ICON_PNG="$PROJECT_DIR/Sources/IconGen/AIMacCleaner.png"
 if [ ! -f "$ICON_PNG" ]; then
     echo "✗ 找不到图标源图：$ICON_PNG"
     echo "  跑 `swift Sources/IconGen/render.swift` 重新生成。"
@@ -76,17 +76,17 @@ cat > "$TARGET/Contents/Info.plist" <<PLIST
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>Expunge</string>
+	<string>AIMacCleaner</string>
 	<key>CFBundleExecutable</key>
-	<string>Expunge</string>
+	<string>AIMacCleaner</string>
 	<key>CFBundleIconFile</key>
-	<string>Expunge</string>
+	<string>AIMacCleaner</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.expunge.app</string>
+	<string>com.aicleaner.app</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Expunge</string>
+	<string>AIMacCleaner</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -100,7 +100,7 @@ cat > "$TARGET/Contents/Info.plist" <<PLIST
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>
-	<string>© 2026 Expunge. Free and open source.</string>
+	<string>© 2026 AI Mac Cleaner. Free and open source.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>NSSupportsAutomaticGraphicsSwitching</key>
@@ -119,8 +119,8 @@ echo "━━ 4/5 稳定 adhoc 签名 ━━"
 # 主键。之前完全不签名时，bundle 每次重新打包身份就变，系统当成一个全新的 app，
 # 于是「想访问『下载』文件夹」这类授权框每次扫描都重弹。
 #
-# --identifier 显式给 com.expunge.app（和 Info.plist 的 CFBundleIdentifier 一致；
-# 不给的话 codesign 会用可执行文件名 "Expunge"，与 bundle id 不符）。
+# --identifier 显式给 com.aicleaner.app（和 Info.plist 的 CFBundleIdentifier 一致；
+# 不给的话 codesign 会用可执行文件名 "AIMacCleaner"，与 bundle id 不符）。
 # 不加 --deep：本 bundle 里没有嵌套的 .app / framework，--deep 对它没意义
 # 而且 Apple 已不推荐。
 #
@@ -128,13 +128,13 @@ echo "━━ 4/5 稳定 adhoc 签名 ━━"
 # 代码一改、重新编译，签名哈希就变，授权还会重弹一次。真正的一次性授权需要
 # Developer ID（$99/年）。现在的效果是：日常使用不再反复弹，重新构建后弹一次。
 codesign --force --sign - \
-         --identifier com.expunge.app \
+         --identifier com.aicleaner.app \
          --options runtime \
          "$TARGET" 2>&1 | sed 's/^/  /' || {
     echo "  ! 签名失败 —— app 仍可用，但 TCC 授权会反复弹框"
 }
-if codesign -dv "$TARGET" 2>&1 | grep -q "Identifier=com.expunge.app"; then
-    echo "  ✓ 已签名（identifier=com.expunge.app）"
+if codesign -dv "$TARGET" 2>&1 | grep -q "Identifier=com.aicleaner.app"; then
+    echo "  ✓ 已签名（identifier=com.aicleaner.app）"
 else
     echo "  ! 签名标识符不符预期，TCC 授权可能记不住"
 fi

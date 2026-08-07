@@ -43,6 +43,6 @@ guard let tiff = image.tiffRepresentation,
 }
 
 let png = bitmap.representation(using: NSBitmapImageRep.FileType.png, properties: [:])!
-let outPath = "Sources/IconGen/Expunge.png"
+let outPath = "Sources/IconGen/AIMacCleaner.png"
 try! png.write(to: URL(fileURLWithPath: outPath))
 print("OK: \(outPath) (\(png.count) bytes)")

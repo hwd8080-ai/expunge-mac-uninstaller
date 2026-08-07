@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <!--
-  Expunge · 菜单 UI 高保真原型 v3（蓝本，供改代码参考）
+  AI Mac Cleaner · 菜单 UI 高保真原型 v3（蓝本，供改代码参考）
 
   信息架构（4 个一级入口，已合理化）
-    1. 问 AI    askai      Agent 通过对话调用 Expunge CLI 完成清理   → 新增 AskAIView.swift
+    1. 问 AI    askai      Agent 通过对话调用 AI Mac Cleaner CLI 完成清理   → 新增 AskAIView.swift
     2. 应用     apps       搜索框（含原「扫描」逻辑）+ 应用列表 + 扫描结果 → MainView.swift
     3. 残留     leftovers  无主残留 ⊕ AI 工具残留（分段筛选）        → 新增 LeftoversView.swift
     4. 进程     processes  用户级进程管理                            → ProcessesView.swift
@@ -12,7 +12,7 @@
     · 原「AI 工具」独立菜单：已并入「残留」页分段
 
   设计配方：Linear(Light) 为骨 · Stripe 为魂 · Apple HIG 为地
-  强调色：Expunge Petrol Blue #0E6C9E
+  强调色：AI Mac Cleaner Petrol Blue #0E6C9E
   样式唯一真源：同目录 design-tokens.md
 
   本版相对 v2 的「合理化」改动（对应用户反馈"四个页面都很丑陋"）
@@ -30,7 +30,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Expunge · 菜单 UI 原型 v3</title>
+<title>AI Mac Cleaner · 菜单 UI 原型 v3</title>
 <style>
 /* ============================================================
    1. 设计令牌
@@ -878,7 +878,7 @@ body.annot [data-swift] { outline: 1px dashed rgba(14,108,158,0.45); outline-off
 </svg>
 
 <div class="doc-title">
-  <h1>Expunge · 菜单 UI 原型 v3</h1>
+  <h1>AI Mac Cleaner · 菜单 UI 原型 v3</h1>
   <p>4 个一级入口（问 AI / 应用 / 残留 / 进程）· 历史已移除 · 扫描并入应用页 · AI 工具并入残留页　—　右上角「标注」可显示每块对应的 Swift 文件</p>
 </div>
 
@@ -886,7 +886,7 @@ body.annot [data-swift] { outline: 1px dashed rgba(14,108,158,0.45); outline-off
   <!-- ===== 标题栏 ===== -->
   <div class="titlebar">
     <div class="lights"><span class="light r"></span><span class="light y"></span><span class="light g"></span></div>
-    <div class="tb-title">Expunge</div>
+    <div class="tb-title">AI Mac Cleaner</div>
     <div class="tb-right">
       <button class="btn sm ghost" onclick="document.body.classList.toggle('annot')">标注</button>
       <button class="icon-btn" title="设置"><svg><use href="#i-more"/></svg></button>
@@ -898,7 +898,7 @@ body.annot [data-swift] { outline: 1px dashed rgba(14,108,158,0.45); outline-off
     <aside class="sidebar" data-swift="MainView.swift">
       <div class="brand">
         <div class="brand-mark"><svg viewBox="0 0 24 24"><use href="#i-broom"/></svg></div>
-        <div class="brand-name">Expunge</div>
+        <div class="brand-name">AI Mac Cleaner</div>
       </div>
       <nav class="nav">
         <div class="nav-item active" data-tab="askai" onclick="switchTab('askai')">
@@ -933,7 +933,7 @@ body.annot [data-swift] { outline: 1px dashed rgba(14,108,158,0.45); outline-off
         <div class="page-head">
           <div class="ph-titles">
             <div class="ph-title">问 AI</div>
-            <div class="ph-sub">用自然语言指挥 Agent 调用 Expunge CLI 完成清理 · 危险操作永远先征求你同意</div>
+            <div class="ph-sub">用自然语言指挥 Agent 调用 AI Mac Cleaner CLI 完成清理 · 危险操作永远先征求你同意</div>
           </div>
           <div class="spacer"></div>
           <button class="btn sm ghost" onclick="aiState('empty')">新会话</button>
@@ -978,7 +978,7 @@ body.annot [data-swift] { outline: 1px dashed rgba(14,108,158,0.45); outline-off
                 <button class="send" onclick="aiState('chat')"><svg><use href="#i-send"/></svg></button>
               </div>
             </div>
-            <div class="comp-foot">Agent 只能执行 Expunge 提供的命令，不会访问文件内容</div>
+            <div class="comp-foot">Agent 只能执行 AI Mac Cleaner 提供的命令，不会访问文件内容</div>
           </div>
         </div>
 
@@ -1277,7 +1277,7 @@ body.annot [data-swift] { outline: 1px dashed rgba(14,108,158,0.45); outline-off
               <div class="empty">
                 <div class="empty-art"><svg><use href="#i-empty"/></svg></div>
                 <h3>选择一个应用开始</h3>
-                <p>从左侧列表选择要卸载的应用，Expunge 会找出它散落在系统各处的全部关联文件；也可以直接在搜索框输入名称回车扫描。</p>
+                <p>从左侧列表选择要卸载的应用，AI Mac Cleaner 会找出它散落在系统各处的全部关联文件；也可以直接在搜索框输入名称回车扫描。</p>
               </div>
             </div>
 
@@ -1326,7 +1326,7 @@ body.annot [data-swift] { outline: 1px dashed rgba(14,108,158,0.45); outline-off
         <div class="page-body" id="lf-result">
           <div class="banner warn">
             <svg><use href="#i-warn"/></svg>
-            <div><b>这些是启发式推断的结果，默认全部不勾选。</b>Expunge 通过反查「有没有活着的已安装应用认领这份数据」来判断残留，可能存在误判。删除前请确认路径你认得——不确定就先跳过。</div>
+            <div><b>这些是启发式推断的结果，默认全部不勾选。</b>AI Mac Cleaner 通过反查「有没有活着的已安装应用认领这份数据」来判断残留，可能存在误判。删除前请确认路径你认得——不确定就先跳过。</div>
           </div>
 
           <!-- AI 复核条：残留页反过来用——AI 帮你勾出可以放心删的 -->
@@ -1483,7 +1483,7 @@ body.annot [data-swift] { outline: 1px dashed rgba(14,108,158,0.45); outline-off
           <div class="empty">
             <div class="empty-art"><svg><use href="#i-broom"/></svg></div>
             <h3>还没有扫描残留</h3>
-            <p>Expunge 会反向遍历 <span class="mono" style="font-size:11.5px">~/Library</span> 下的常见目录，找出没有任何已安装应用认领的数据，并单独比对已知 AI 编程工具清单。</p>
+            <p>AI Mac Cleaner 会反向遍历 <span class="mono" style="font-size:11.5px">~/Library</span> 下的常见目录，找出没有任何已安装应用认领的数据，并单独比对已知 AI 编程工具清单。</p>
             <button class="btn primary" onclick="lfState('result')"><svg><use href="#i-search"/></svg>开始扫描残留</button>
           </div>
         </div>
@@ -1521,7 +1521,7 @@ body.annot [data-swift] { outline: 1px dashed rgba(14,108,158,0.45); outline-off
         <div class="page-body">
           <div class="banner info">
             <svg><use href="#i-info"/></svg>
-            <div><b>这里只列出你自己启动的进程。</b>系统进程与 Expunge 自身已被排除，不可结束。结束进程会先发送 SIGTERM 优雅退出，1 秒后仍存活才强制终止。</div>
+            <div><b>这里只列出你自己启动的进程。</b>系统进程与 AI Mac Cleaner 自身已被排除，不可结束。结束进程会先发送 SIGTERM 优雅退出，1 秒后仍存活才强制终止。</div>
           </div>
 
           <div class="ptable">
@@ -1576,7 +1576,7 @@ body.annot [data-swift] { outline: 1px dashed rgba(14,108,158,0.45); outline-off
             </div>
             <div class="pt-row locked">
               <input type="checkbox" class="cb" disabled />
-              <div class="pt-name">Expunge <small>当前应用，不可结束</small></div>
+              <div class="pt-name">AI Mac Cleaner <small>当前应用，不可结束</small></div>
               <div class="c-pid">52104</div><div class="c-cpu">0.4%</div><div class="c-mem">86.4 MB</div>
               <div class="c-kind"><span class="pill locked"><svg><use href="#i-shield"/></svg>受保护</span></div>
               <button class="icon-btn" disabled style="opacity:.3"><svg><use href="#i-more"/></svg></button>
@@ -1604,7 +1604,7 @@ body.annot [data-swift] { outline: 1px dashed rgba(14,108,158,0.45); outline-off
         <div class="sheet-ico warn"><svg><use href="#i-warn"/></svg></div>
         <div>
           <div class="sheet-title" id="cf-title">卸载 Cursor</div>
-          <div class="sheet-desc">共 <b id="cf-n">9</b> 项，合计 <span class="mono" id="cf-sz">1.39 GB</span>。Expunge 会按风险自动分流处理方式。</div>
+          <div class="sheet-desc">共 <b id="cf-n">9</b> 项，合计 <span class="mono" id="cf-sz">1.39 GB</span>。AI Mac Cleaner 会按风险自动分流处理方式。</div>
         </div>
       </div>
       <div class="sheet-body">
@@ -1764,7 +1764,7 @@ body.annot [data-swift] { outline: 1px dashed rgba(14,108,158,0.45); outline-off
           <input type="checkbox" class="cb" checked style="margin-top:1px" />
           <div>
             <div class="opt-t">附带诊断信息</div>
-            <div class="opt-s">仅包含 macOS 版本、Expunge 版本、命中的匹配规则与目录结构；<b>用户名会被打码，绝不上传文件内容</b>。可点「预览」查看将要提交的原文。</div>
+            <div class="opt-s">仅包含 macOS 版本、AI Mac Cleaner 版本、命中的匹配规则与目录结构；<b>用户名会被打码，绝不上传文件内容</b>。可点「预览」查看将要提交的原文。</div>
           </div>
         </label>
       </div>

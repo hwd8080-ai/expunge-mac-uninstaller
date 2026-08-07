@@ -1,4 +1,4 @@
-# Expunge
+# AI Mac Cleaner
 
 **macOS 深度卸载工具**——不只是删 `.app`，连依赖和痕迹一起拔干净。
 
@@ -10,14 +10,14 @@
 
 > **系统要求：** macOS 14 (Sonoma) 及以上。支持 Intel 和 Apple Silicon。[为什么需要 macOS 14？](#系统要求)
 
-![Expunge 主界面](screenshots/mainCN.png)
+![AI Mac Cleaner 主界面](screenshots/mainCN.png)
 
 ---
 
 ## 功能
 
 ### 🧹 深度卸载
-选中一个应用，Expunge 找出和它有关的一切。不只是 `.app` 包体——依赖、偏好设置、缓存、日志、容器、包管理器安装的 CLI 工具，全部列出。确认一次，全部清掉。
+选中一个应用，AI Mac Cleaner 找出和它有关的一切。不只是 `.app` 包体——依赖、偏好设置、缓存、日志、容器、包管理器安装的 CLI 工具，全部列出。确认一次，全部清掉。
 
 ![深度卸载](screenshots/uninstallCN.png)
 
@@ -75,43 +75,43 @@
 
 ### 下载 DMG（推荐）
 
-从 [Releases](https://github.com/hwd8080-ai/hwd8080-ai-uninstaller/releases) 下载 `Expunge-<版本>.dmg` 和同名 `.sha256`。先校验：
+从 [Releases](https://github.com/hwd8080-ai/ai-mac-cleaner/releases) 下载 `AI Mac Cleaner-<版本>.dmg` 和同名 `.sha256`。先校验：
 
 ```bash
-shasum -a 256 -c Expunge-<版本>.dmg.sha256   # 应输出 OK
+shasum -a 256 -c AI Mac Cleaner-<版本>.dmg.sha256   # 应输出 OK
 ```
 
-打开 DMG，把 Expunge 拖到 Applications。首次启动：**右键 → 打开**。
+打开 DMG，把 AI Mac Cleaner 拖到 Applications。首次启动：**右键 → 打开**。
 
 ### 从源码构建
 
 ```bash
-git clone https://github.com/hwd8080-ai/hwd8080-ai-uninstaller.git
-cd hwd8080-ai-uninstaller
-./build_app.sh                       # → /Applications/Expunge.app
-open /Applications/Expunge.app
+git clone https://github.com/hwd8080-ai/ai-mac-cleaner.git
+cd ai-mac-cleaner
+./build_app.sh                       # → /Applications/AIMacCleaner.app
+open /Applications/AIMacCleaner.app
 ```
 
 打 DMG 发布包：
 
 ```bash
-./build_release.sh                   # → dist/Expunge-<版本>.dmg + .sha256
+./build_release.sh                   # → dist/AIMacCleaner-<版本>.dmg + .sha256
 ```
 
 ### 仅命令行
 
 ```bash
 swift build -c release
-.build/release/Expunge --scan 微信       # 扫描某个应用
-.build/release/Expunge --self-test       # 跑自检
-.build/release/Expunge --skills          # 列出 Agent 能调用的 skill
+.build/release/AIMacCleaner --scan 微信       # 扫描某个应用
+.build/release/AIMacCleaner --self-test       # 跑自检
+.build/release/AIMacCleaner --skills          # 列出 Agent 能调用的 skill
 ```
 
 ---
 
 ## 扫描范围
 
-Expunge 覆盖 16 类残留：
+AI Mac Cleaner 覆盖 16 类残留：
 
 | 类别 | 扫描内容 |
 |------|---------|
@@ -158,7 +158,7 @@ Expunge 覆盖 16 类残留：
 
 **会上传数据吗？** 不会。无埋点、无遥测、无网络请求。全部本地处理。
 
-**和 AppCleaner / CleanMyMac 比呢？** 那些是闭源的，有的是付费软件。Expunge 开源免费，且集成了包管理器清理、孤儿扫描、AI 辅助、进程管理于一体。
+**和 AppCleaner / CleanMyMac 比呢？** 那些是闭源的，有的是付费软件。AI Mac Cleaner 开源免费，且集成了包管理器清理、孤儿扫描、AI 辅助、进程管理于一体。
 
 **可以再分发吗？** 可以。MIT 协议，见 [LICENSE](LICENSE)。
 
@@ -172,10 +172,10 @@ Expunge 覆盖 16 类残留：
 | 架构 | Intel (x86-64) 或 Apple Silicon (arm64) |
 | 磁盘 | 约 25 MB 安装空间 |
 
-> **为什么需要 macOS 14？** Expunge 使用了 Sonoma 引入的 SwiftUI API——`.onKeyPress` 处理键盘输入（回车发送/方向键导航/Tab 补全），以及新版 `.onChange(of:)` 闭包语法。降级到 macOS 13 需要替换这些 API，对小型项目维护成本过高。Sonoma 于 2023 年发布，覆盖了 2018 年及以后的所有 Mac。
+> **为什么需要 macOS 14？** AI Mac Cleaner 使用了 Sonoma 引入的 SwiftUI API——`.onKeyPress` 处理键盘输入（回车发送/方向键导航/Tab 补全），以及新版 `.onChange(of:)` 闭包语法。降级到 macOS 13 需要替换这些 API，对小型项目维护成本过高。Sonoma 于 2023 年发布，覆盖了 2018 年及以后的所有 Mac。
 
 ---
 
 ## 协议
 
-MIT © Expunge 贡献者
+MIT © AI Mac Cleaner 贡献者

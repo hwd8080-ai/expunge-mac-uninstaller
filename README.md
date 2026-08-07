@@ -1,4 +1,4 @@
-# Expunge
+# AI Mac Cleaner
 
 **The macOS uninstaller that actually removes everything.**
 
@@ -10,14 +10,14 @@ Free, open-source, and thorough. Uninstall any Mac app — and sweep up every tr
 
 > **System Requirements:** macOS 14 (Sonoma) or later. Intel & Apple Silicon. [Why macOS 14?](#system-requirements)
 
-![Expunge main interface](screenshots/main.png)
+![AI Mac Cleaner main interface](screenshots/main.png)
 
 ---
 
 ## Features
 
 ### 🧹 Deep Uninstall
-Select an app, Expunge finds everything connected to it. Not just the `.app` bundle — dependencies, preferences, caches, logs, containers, and CLI tools installed by package managers. Confirm once, it's all gone.
+Select an app, AI Mac Cleaner finds everything connected to it. Not just the `.app` bundle — dependencies, preferences, caches, logs, containers, and CLI tools installed by package managers. Confirm once, it's all gone.
 
 ![Deep uninstall](screenshots/uninstall.png)
 
@@ -75,43 +75,43 @@ See every background process running on your Mac — node servers, Python script
 
 ### Download DMG (Recommended)
 
-Download `Expunge-<version>.dmg` and its `.sha256` from [Releases](https://github.com/hwd8080-ai/hwd8080-ai-uninstaller/releases). Verify first:
+Download `AI Mac Cleaner-<version>.dmg` and its `.sha256` from [Releases](https://github.com/hwd8080-ai/ai-mac-cleaner/releases). Verify first:
 
 ```bash
-shasum -a 256 -c Expunge-<version>.dmg.sha256   # Should print OK
+shasum -a 256 -c AI Mac Cleaner-<version>.dmg.sha256   # Should print OK
 ```
 
-Open the DMG, drag Expunge to Applications. First launch: **right-click → Open** (required for unsigned apps).
+Open the DMG, drag AI Mac Cleaner to Applications. First launch: **right-click → Open** (required for unsigned apps).
 
 ### Build from Source
 
 ```bash
-git clone https://github.com/hwd8080-ai/hwd8080-ai-uninstaller.git
-cd hwd8080-ai-uninstaller
-./build_app.sh                       # → /Applications/Expunge.app
-open /Applications/Expunge.app
+git clone https://github.com/hwd8080-ai/ai-mac-cleaner.git
+cd ai-mac-cleaner
+./build_app.sh                       # → /Applications/AIMacCleaner.app
+open /Applications/AIMacCleaner.app
 ```
 
 To build a DMG for distribution:
 
 ```bash
-./build_release.sh                   # → dist/Expunge-<version>.dmg + .sha256
+./build_release.sh                   # → dist/AIMacCleaner-<version>.dmg + .sha256
 ```
 
 ### CLI Only
 
 ```bash
 swift build -c release
-.build/release/Expunge --scan "WeChat"   # Scan an app
-.build/release/Expunge --self-test       # Run self-tests
-.build/release/Expunge --skills          # List agent skills
+.build/release/AIMacCleaner --scan "WeChat"   # Scan an app
+.build/release/AIMacCleaner --self-test       # Run self-tests
+.build/release/AIMacCleaner --skills          # List agent skills
 ```
 
 ---
 
 ## How It Works
 
-Expunge scans across 16 categories:
+AI Mac Cleaner scans across 16 categories:
 
 | Category | What It Finds |
 |----------|--------------|
@@ -172,10 +172,10 @@ All skills are read-only by default. The agent drafts plans — you approve remo
 | Architecture | Intel (x86-64) or Apple Silicon (arm64) |
 | Disk | ~25 MB installed |
 
-> **Why macOS 14?** Expunge uses SwiftUI APIs introduced in Sonoma — `.onKeyPress` for rich keyboard input handling, and the modern `.onChange(of:)` closure syntax. Supporting older versions would require replacing these with legacy equivalents, adding maintenance burden for a small team. Sonoma was released in 2023 and runs on all Macs from 2018 onward.
+> **Why macOS 14?** AI Mac Cleaner uses SwiftUI APIs introduced in Sonoma — `.onKeyPress` for rich keyboard input handling, and the modern `.onChange(of:)` closure syntax. Supporting older versions would require replacing these with legacy equivalents, adding maintenance burden for a small team. Sonoma was released in 2023 and runs on all Macs from 2018 onward.
 
 ---
 
 ## License
 
-MIT © Expunge contributors
+MIT © AI Mac Cleaner contributors

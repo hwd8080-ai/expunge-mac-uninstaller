@@ -1,4 +1,4 @@
-# Expunge 高保真原型 · 导出交付说明
+# AI Mac Cleaner 高保真原型 · 导出交付说明
 
 > 交付物版本：v1.4.0 界面原型
 > 导出角色：设计原型专家团 · 导出交付专家（交付达）
@@ -34,7 +34,7 @@
 ### 方式 3：终端命令
 
 ```bash
-open "/Users/hwd7500/Documents/expunge-mac-uninstaller/design-prototype/index.html"
+open "/Users/hwd7500/Documents/ai-mac-cleaner/design-prototype/index.html"
 ```
 
 ### 从 ZIP 解压后使用
@@ -102,7 +102,7 @@ open "/Users/hwd7500/Documents/expunge-mac-uninstaller/design-prototype/index.ht
 <html lang="zh-CN">      ✅ 已有
 <meta charset="UTF-8">   ✅ 已有
 <meta name="viewport" …> ✅ 已有
-<title>Expunge — 界面原型</title>  ✅ 已有
+<title>AI Mac Cleaner — 界面原型</title>  ✅ 已有
 ```
 
 ### 一处非阻断提示（不影响使用）
@@ -118,7 +118,7 @@ SVG sprite 中有 3 个已定义但当前未被引用的备用图标：`i-disk`�
 - **深浅色**：当前交付为 **Light 模式**单一主题，未包含 Dark 模式变体。
 - **离线可用**：断网状态下功能与联网时完全一致。
 - **可安全分发**：单文件可直接通过邮件、IM、云盘传输，接收方双击即可查看，无需还原任何工程环境。
-- **非可运行软件**：这是界面原型（Prototype），不是 Expunge 应用本身，所有数据均为演示用的静态假数据。
+- **非可运行软件**：这是界面原型（Prototype），不是 AI Mac Cleaner 应用本身，所有数据均为演示用的静态假数据。
 
 ---
 

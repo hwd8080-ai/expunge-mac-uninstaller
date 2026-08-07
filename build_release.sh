@@ -5,10 +5,10 @@
 #   默认输出到 ./dist/
 #
 # 产物：
-#   dist/Expunge-<版本>.dmg
-#   dist/Expunge-<版本>.dmg.sha256
+#   dist/AIMacCleaner-<版本>.dmg
+#   dist/AIMacCleaner-<版本>.dmg.sha256
 #
-# **本脚本不做签名和公证。** Expunge 目前只有 adhoc 签名（没有 Apple
+# **本脚本不做签名和公证。** AIMacCleaner 目前只有 adhoc 签名（没有 Apple
 # Developer 账号），用户首次打开需要右键 → 打开。校验和是在这个前提下
 # 能给出的最强的完整性保证：它证明你下到的 DMG 和发布时那份逐字节一致。
 # 对一个会删文件的工具，这个不能省。

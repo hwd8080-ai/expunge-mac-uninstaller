@@ -1,6 +1,6 @@
 # 「问 AI」Sprint A 增量系统设计
 
-> 项目：Expunge（macOS 深度卸载工具）· Swift + SwiftUI + SwiftPM
+> 项目：AI Mac Cleaner（macOS 深度卸载工具）· Swift + SwiftUI + SwiftPM
 > 范围：`问 AI` tab 的四项增量能力（对话持久化 / 斜杠命令 / 上下文裁剪 / 输入限长）
 > 架构师：高见远　|　基于许清楚的增量 PRD + 主理人齐活林的拍板规格
 > 性质：**增量改造**，不重造轮子、不引新依赖
@@ -40,7 +40,7 @@ D5 通过把"派生发模型 history"收进一个纯函数解决，二分映射�
 
 | 需求 | 选型 | 理由 |
 |------|------|------|
-| 本地持久化 | `Foundation` 的 `JSONEncoder/Decoder` + `Data.write(to:)` | 直接复刻 `FeedbackStore` 的成熟模式（同目录 `~/Library/Application Support/Expunge/`、同容错策略）。引 SQLite/CoreData 对一个上限 30 条消息的数组是荒谬的。 |
+| 本地持久化 | `Foundation` 的 `JSONEncoder/Decoder` + `Data.write(to:)` | 直接复刻 `FeedbackStore` 的成熟模式（同目录 `~/Library/Application Support/AI Mac Cleaner/`、同容错策略）。引 SQLite/CoreData 对一个上限 30 条消息的数组是荒谬的。 |
 | 状态管理 | 既有 `AppState: ObservableObject` + `@Published` | 项目已统一用它，`AskAIView` 已经 `@EnvironmentObject` 拿到了 —— 上提是零成本的。 |
 | 命令匹配 | Swift 原生 `switch` 精确匹配（**不用 `NSRegularExpression`**） | 见 §3.4，这是安全项，正则的锚点/元字符陷阱不值得冒。 |
 | 文案 | 既有 `L10n.t(zh, en)` | 不改 L10n.swift，全部内联。 |
@@ -69,9 +69,9 @@ Agent 层    AgentRuntime/Bridge   ── 只补 Codable，行为一行不改
 
 | 路径 | 职责 |
 |------|------|
-| `Sources/Expunge/Models/ChatMessage.swift` | `AIMessage`（从 `AskAIView.swift` **迁入**）+ 三态 `Role` + `isAnchor` + `Codable` 实现 |
-| `Sources/Expunge/Models/ChatStore.swift` | `ChatArchive` 信封 + `ChatStore` 单例（`all` / `save` / `clearAll`） |
-| `Sources/Expunge/Models/ChatPolicy.swift` | `ChatCommand` 白名单解析 + `ChatPolicy` 裁剪/锚点/派生纯函数 + 三个限额常量 |
+| `Sources/AIMacCleaner/Models/ChatMessage.swift` | `AIMessage`（从 `AskAIView.swift` **迁入**）+ 三态 `Role` + `isAnchor` + `Codable` 实现 |
+| `Sources/AIMacCleaner/Models/ChatStore.swift` | `ChatArchive` 信封 + `ChatStore` 单例（`all` / `save` / `clearAll`） |
+| `Sources/AIMacCleaner/Models/ChatPolicy.swift` | `ChatCommand` 白名单解析 + `ChatPolicy` 裁剪/锚点/派生纯函数 + 三个限额常量 |
 
 > 为什么 `AIMessage` 要从 `AskAIView.swift` 迁到 `Models/`：改造后它被 `AppState`（状态层）、`ChatStore`（存储层）、`ChatPolicy`（策略层）三处引用，已经不是 View 的私有模型了，留在 View 文件里是分层错误。**并且**——迁到 `Models/ChatMessage.swift` 后，`Codable` 一致性可以声明在类型原声明处，`encode(to:)` 得以自动合成，只需手写 `init(from:)`；若用跨文件 `extension` 声明一致性，Swift 拒绝自动合成，两个方法都得手写。这是一次纯收益的搬家（Swift 全模块编译，`internal` 可见性不变，零调用点改动）。
 
@@ -79,12 +79,12 @@ Agent 层    AgentRuntime/Bridge   ── 只补 Codable，行为一行不改
 
 | 路径 | 改动 |
 |------|------|
-| `Sources/Expunge/AppState.swift` | 新增 `chatMessages` / `chatIsThinking` 两个 `@Published` + 5 个方法 + 2 个派生属性；`init()` 末尾调 `restoreChat()` |
-| `Sources/Expunge/UI/AskAIView.swift` | 删除 `AIMessage` 定义（已迁出）；`@State messages`/`isThinking` → `state.*`；`send()` 前置命令分流；`SystemDivider` 新组件；空态判定；字数计数；`chatLog` 恢复滚动 |
-| `Sources/Expunge/Agent/AgentRuntime.swift` | `AgentStep` 加 `Codable` + `CodingKeys`（排除 `id`）+ 容错 `init(from:)`。**运行逻辑一行不改** |
-| `Sources/Expunge/Agent/Skill.swift` | `enum SkillRisk: String` → `: String, Codable`；`enum AgentTab: String, Sendable` → `: String, Codable, Sendable`。仅两行 |
-| `Sources/Expunge/Agent/AgentBridge.swift` | **仅补文档注释**，钉死 `reset()` 的语义边界（防止后人再次误以为它能重置会话）。零行为改动 |
-| `Sources/Expunge/SelfTest.swift` | 新增一组 `Check`：命令白名单（含全部反例）、裁剪窗口、锚点截断、Codable 往返 |
+| `Sources/AIMacCleaner/AppState.swift` | 新增 `chatMessages` / `chatIsThinking` 两个 `@Published` + 5 个方法 + 2 个派生属性；`init()` 末尾调 `restoreChat()` |
+| `Sources/AIMacCleaner/UI/AskAIView.swift` | 删除 `AIMessage` 定义（已迁出）；`@State messages`/`isThinking` → `state.*`；`send()` 前置命令分流；`SystemDivider` 新组件；空态判定；字数计数；`chatLog` 恢复滚动 |
+| `Sources/AIMacCleaner/Agent/AgentRuntime.swift` | `AgentStep` 加 `Codable` + `CodingKeys`（排除 `id`）+ 容错 `init(from:)`。**运行逻辑一行不改** |
+| `Sources/AIMacCleaner/Agent/Skill.swift` | `enum SkillRisk: String` → `: String, Codable`；`enum AgentTab: String, Sendable` → `: String, Codable, Sendable`。仅两行 |
+| `Sources/AIMacCleaner/Agent/AgentBridge.swift` | **仅补文档注释**，钉死 `reset()` 的语义边界（防止后人再次误以为它能重置会话）。零行为改动 |
+| `Sources/AIMacCleaner/SelfTest.swift` | 新增一组 `Check`：命令白名单（含全部反例）、裁剪窗口、锚点截断、Codable 往返 |
 
 ### 2.3 明确不改
 
@@ -164,7 +164,7 @@ classDiagram
         +save(AIMessage[]) Void
         +clearAll() Void
     }
-    note for ChatStore "哑 I/O，不做裁剪不做判断\n~/Library/Application Support/Expunge/askai-history.json\n目录自动创建 · 读写失败静默降级"
+    note for ChatStore "哑 I/O，不做裁剪不做判断\n~/Library/Application Support/AI Mac Cleaner/askai-history.json\n目录自动创建 · 读写失败静默降级"
 
     class ChatCommand {
         <<enumeration>>
@@ -293,7 +293,7 @@ struct ChatArchive: Codable {
 
 final class ChatStore {
     static let shared = ChatStore()
-    private let url: URL      // ~/Library/Application Support/Expunge/askai-history.json
+    private let url: URL      // ~/Library/Application Support/AI Mac Cleaner/askai-history.json
 
     private init()            // 目录不存在时 createDirectory(withIntermediateDirectories: true)
 
@@ -512,7 +512,7 @@ private func persistChat()   // ChatStore.shared.save(chatMessages)
 
 **`restoreChat()` 放在 `init()` 而不是 `onAppear`**：读一个上限 30 条消息的 JSON 是亚毫秒级同步 I/O，与既有 `ModelConfigStore.current`（同步读 UserDefaults）同一量级。放 `init()` 的收益是——**恢复只发生一次**，不需要 `hasRestored` 状态位，也不存在"切 tab 回来又恢复一次覆盖了新消息"的竞态。放 `onAppear` 才是给自己挖坑。
 
-**多窗口安全性**：`ExpungeApp` 用 `WindowGroup`，但 `state` 是 App 层的 `@StateObject`，**全进程只创建一次**、所有窗口共享同一实例。所以"单窗口单会话"天然成立，多开窗口不会互相覆盖 JSON。
+**多窗口安全性**：`AI Mac CleanerApp` 用 `WindowGroup`，但 `state` 是 App 层的 `@StateObject`，**全进程只创建一次**、所有窗口共享同一实例。所以"单窗口单会话"天然成立，多开窗口不会互相覆盖 JSON。
 
 ### 3.9 `AskAIView` 改动摘要
 
@@ -663,7 +663,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     autonumber
-    participant A as ExpungeApp
+    participant A as AI Mac CleanerApp
     participant S as AppState
     participant St as ChatStore
     participant P as ChatPolicy
@@ -838,7 +838,7 @@ sequenceDiagram
 
 ### K9 存储路径与容错
 
-- 路径：`~/Library/Application Support/Expunge/askai-history.json`（与 `feedback.json` 同目录）
+- 路径：`~/Library/Application Support/AI Mac Cleaner/askai-history.json`（与 `feedback.json` 同目录）
 - 目录不存在时 `createDirectory(withIntermediateDirectories: true)`
 - 所有读写用 `try?`：**失败静默降级**（读失败 → `[]`；写失败 → 无声）。**不崩溃、不弹窗、不打断用户**。
 - 与 `FeedbackStore` 保持完全一致的形状，谁来看都不会误会。
@@ -866,12 +866,12 @@ sequenceDiagram
 - **优先级**：P0
 - **依赖**：无
 - **涉及文件（6）**：
-  - 🆕 `Sources/Expunge/Models/ChatMessage.swift`
-  - 🆕 `Sources/Expunge/Models/ChatPolicy.swift`
-  - 🆕 `Sources/Expunge/Models/ChatStore.swift`
-  - ✏️ `Sources/Expunge/Agent/AgentRuntime.swift`（`AgentStep` 加 `Codable`）
-  - ✏️ `Sources/Expunge/Agent/Skill.swift`（`SkillRisk` / `AgentTab` 加 `Codable`，两行）
-  - ✏️ `Sources/Expunge/UI/AskAIView.swift`（**仅删除** `AIMessage` 定义，已迁出）
+  - 🆕 `Sources/AIMacCleaner/Models/ChatMessage.swift`
+  - 🆕 `Sources/AIMacCleaner/Models/ChatPolicy.swift`
+  - 🆕 `Sources/AIMacCleaner/Models/ChatStore.swift`
+  - ✏️ `Sources/AIMacCleaner/Agent/AgentRuntime.swift`（`AgentStep` 加 `Codable`）
+  - ✏️ `Sources/AIMacCleaner/Agent/Skill.swift`（`SkillRisk` / `AgentTab` 加 `Codable`，两行）
+  - ✏️ `Sources/AIMacCleaner/UI/AskAIView.swift`（**仅删除** `AIMessage` 定义，已迁出）
 - **内容**：§3.2 `AIMessage`（三态 `Role` + `isAnchor` + `CodingKeys` 排除 `id` + 容错 `init(from:)` + `anchor()` 工厂）、§3.4 `ChatCommand.parse`、§3.5 `ChatPolicy` 四个纯函数 + 三个常量、§3.3 `ChatStore` + `ChatArchive`、§3.6 三个枚举与 `AgentStep` 的 Codable。
 - **验收**：
   1. `swift build` 零错误**零新增警告**（尤其不得出现 `"immutable property will not be decoded"`）
@@ -885,15 +885,15 @@ sequenceDiagram
 - **优先级**：P0
 - **依赖**：T01
 - **涉及文件（3）**：
-  - ✏️ `Sources/Expunge/AppState.swift`
-  - ✏️ `Sources/Expunge/UI/AskAIView.swift`
-  - ✏️ `Sources/Expunge/Agent/AgentBridge.swift`（**仅补注释**，钉死 `reset()` 语义边界，见 K5）
+  - ✏️ `Sources/AIMacCleaner/AppState.swift`
+  - ✏️ `Sources/AIMacCleaner/UI/AskAIView.swift`
+  - ✏️ `Sources/AIMacCleaner/Agent/AgentBridge.swift`（**仅补注释**，钉死 `reset()` 语义边界，见 K5）
 - **内容**：§3.8 全部（两个 `@Published`、两个派生属性、5 个方法、`init()` 调 `restoreChat()`）；`AskAIView` 删除 `@State messages` / `@State isThinking`，全部改读写 `state.*`；`send()` 里 history 改用 `state.chatModelHistory`（**注意 K8 的取值时机**）；`chatLog` 的 `onAppear` 延迟一帧滚到最后一条。
 - **验收**（这是**修正 B** 的验收）：
   1. 发几条消息 → 切到「应用」tab → 切回 → **对话完整还在**，且已滚到最后一条
   2. 退出 app → 重启 → **对话自动恢复**，`isThinking` 为 false，无转圈残留
   3. 发消息中途切走再切回 → AI 回复最终**正确落地**（实时 step 流丢失是已知限制）
-  4. 手动删除 `~/Library/Application Support/Expunge/askai-history.json` → 重启 → 正常显示空态首屏，不崩
+  4. 手动删除 `~/Library/Application Support/AI Mac Cleaner/askai-history.json` → 重启 → 正常显示空态首屏，不崩
   5. 手动把该 JSON 改成一堆乱码 → 重启 → 静默降级为空会话，不崩不弹窗
 
 ---
@@ -903,9 +903,9 @@ sequenceDiagram
 - **优先级**：P0
 - **依赖**：T02
 - **涉及文件（3）**：
-  - ✏️ `Sources/Expunge/AppState.swift`（`clearChat` / `resetChatContext` 的最终行为与守卫）
-  - ✏️ `Sources/Expunge/UI/AskAIView.swift`（`send()` 命令分流、`SystemDivider` 组件、「新会话」按钮走同一函数 + tooltip、空态判定改 `chatHasConversation`）
-  - ✏️ `Sources/Expunge/Models/ChatPolicy.swift`（联调补齐 `afterAnchor` / `hasConversation` 边界）
+  - ✏️ `Sources/AIMacCleaner/AppState.swift`（`clearChat` / `resetChatContext` 的最终行为与守卫）
+  - ✏️ `Sources/AIMacCleaner/UI/AskAIView.swift`（`send()` 命令分流、`SystemDivider` 组件、「新会话」按钮走同一函数 + tooltip、空态判定改 `chatHasConversation`）
+  - ✏️ `Sources/AIMacCleaner/Models/ChatPolicy.swift`（联调补齐 `afterAnchor` / `hasConversation` 边界）
 - **内容**：§4.1 的四道闸与两条命令路径；§3.7 锚点的数据表示与渲染；§3.9 `SystemDivider`（`HStack { Divider; Text; Divider }`）。
 - **验收**（**修正 A** 与安全项的验收）：
   1. 输入 `/new` → 界面回空态首屏，JSON 被清空，「新会话」按钮消失
@@ -924,9 +924,9 @@ sequenceDiagram
 - **优先级**：P1
 - **依赖**：T02（与 T03 无逻辑依赖；但两者都改 `AskAIView.swift`，**建议顺序执行**，见 §九 依赖图的虚线）
 - **涉及文件（3+）**：
-  - ✏️ `Sources/Expunge/UI/AskAIView.swift`（输入区：`canSend`、计数、三档颜色、tooltip）
-  - ✏️ `Sources/Expunge/SelfTest.swift`（新增一组 `Check`）
-  - ✏️ 按验收发现回补 `Sources/Expunge/Models/ChatPolicy.swift` / `ChatStore.swift`
+  - ✏️ `Sources/AIMacCleaner/UI/AskAIView.swift`（输入区：`canSend`、计数、三档颜色、tooltip）
+  - ✏️ `Sources/AIMacCleaner/SelfTest.swift`（新增一组 `Check`）
+  - ✏️ 按验收发现回补 `Sources/AIMacCleaner/Models/ChatPolicy.swift` / `ChatStore.swift`
 - **内容**：§3.10 全部（含 K10 的三个 SwiftUI 坑）；`SelfTest` 新增用例：
   - `ChatCommand.parse` —— §3.4 判定表**逐条**，安全反例一条不落
   - `ChatPolicy.trim` —— 恰好 15 轮不裁 / 16 轮裁到 15 / 窗口切在 `.ai` 上时丢弃孤儿 / 锚点被裁掉后仍正确
@@ -942,7 +942,7 @@ sequenceDiagram
   6. 输入框默认固定 3 行高度；内容超过 3 行时内部滚动并显示滚动条
   7. 输入 `/` 时弹出命令面板；输入 `/c` 高亮 `/clear`；回车或点击立即执行
   8. 普通回车发送；⌥回车插入换行
-  9. `Expunge --self-test` **全绿**
+  9. `AIMacCleaner --self-test` **全绿**
 
 ---
 

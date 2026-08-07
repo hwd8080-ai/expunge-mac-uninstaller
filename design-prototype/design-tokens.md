@@ -1,8 +1,8 @@
-# Expunge — 设计系统选型 & 设计令牌（Design Tokens）
+# AI Mac Cleaner — 设计系统选型 & 设计令牌（Design Tokens）
 
 > 设计系统专家：彩格调（Cai） · 设计原型专家团
 > 版本 v1.0 · 关联：`requirement-summary.md`
-> 产品：Expunge v1.4.0 — macOS 深度卸载工具（Swift / SwiftUI，MIT 开源）
+> 产品：AI Mac Cleaner v1.4.0 — macOS 深度卸载工具（Swift / SwiftUI，MIT 开源）
 > 交付定位：**高保真 HTML/CSS 视觉原型的唯一样式源**，同时作为 SwiftUI 实现蓝图
 
 ---
@@ -13,8 +13,8 @@
 
 | 方案 | 设计系统 | 匹配度 | 核心特征 | 契合理由（一句话） |
 |------|---------|--------|---------|------------------|
-| **A ★最推荐** | **Linear（Light Mode）** | ★★★★★ | 窄 sidebar + 密集列表行 + 分组折叠 + pill 徽章 + 1px 极细边框 + 近乎无色的中性灰阶 | 它的组件语汇与 Expunge 的界面结构几乎 1:1 对应（Tab 侧栏／可勾选列表／可折叠分组／风险徽章／上下文工具栏），且"极浅底 + 发丝线 + 唯一强调色"的克制体系天然产出"精密仪器"气质。 |
-| B | **Stripe** | ★★★★☆ | 浅色通透、大留白、柔和多层阴影、机器数据用等宽字、极强的"金额诚实呈现"传统 | 它是"可信"的视觉母语——把「移到废纸篓 N 项（X）／清空废纸篓后才真正释放空间」这种严谨报账式表述做得优雅不吓人，正对上 Expunge 的产品灵魂。 |
+| **A ★最推荐** | **Linear（Light Mode）** | ★★★★★ | 窄 sidebar + 密集列表行 + 分组折叠 + pill 徽章 + 1px 极细边框 + 近乎无色的中性灰阶 | 它的组件语汇与 AI Mac Cleaner 的界面结构几乎 1:1 对应（Tab 侧栏／可勾选列表／可折叠分组／风险徽章／上下文工具栏），且"极浅底 + 发丝线 + 唯一强调色"的克制体系天然产出"精密仪器"气质。 |
+| B | **Stripe** | ★★★★☆ | 浅色通透、大留白、柔和多层阴影、机器数据用等宽字、极强的"金额诚实呈现"传统 | 它是"可信"的视觉母语——把「移到废纸篓 N 项（X）／清空废纸篓后才真正释放空间」这种严谨报账式表述做得优雅不吓人，正对上 AI Mac Cleaner 的产品灵魂。 |
 | C | **Apple（macOS HIG 语汇）** | ★★★★☆ | SF 字体、毛玻璃材质、原生控件尺寸（28px 按钮 / 13px 正文）、系统语义色 | 保证原型 → SwiftUI 落地零摩擦、观感"就是一个 Mac App"，但单独使用差异化不足，更适合作为地基而非主视觉。 |
 
 **未入选说明（避免误判）**：Vercel / Cursor / Warp / Raycast 均偏暗色或纯黑白，与 Q1「明亮通透」冲突或缺少可信强调色载体；Notion / Figma 过于柔和消费级；IBM Carbon 精密但企业感偏冷、直角风格与 macOS 圆角语言不符。
@@ -45,7 +45,7 @@
 
 ## 2. Color Palette（调色板）
 
-### 2.1 品牌强调色提案 — Expunge Petrol Blue
+### 2.1 品牌强调色提案 — AI Mac Cleaner Petrol Blue
 
 | Token | HEX | HSL | 对比度(白底) | 说明 |
 |-------|-----|-----|------------|------|
@@ -380,7 +380,7 @@
 
 ```css
 :root {
-  /* ── 强调色 Accent · Expunge Petrol Blue ───────────── */
+  /* ── 强调色 Accent · AI Mac Cleaner Petrol Blue ───────────── */
   --color-accent:            #0E6C9E;
   --color-accent-hover:      #0B5D88;
   --color-accent-active:     #094E73;

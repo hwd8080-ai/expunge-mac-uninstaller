@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Expunge 应用图标方案</title>
+<title>AI Mac Cleaner 应用图标方案</title>
 <style>
   :root {
     --bg: #f4f5f7;
@@ -77,8 +77,8 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>Expunge 应用图标方案</h1>
-    <p>点一个你喜欢的，下方会记录选择。选定后我会把对应 SVG 栅格化成 <code>Sources/IconGen/Expunge.png</code>，打包时直接转成 .icns，替换现有图标。</p>
+    <h1>AI Mac Cleaner 应用图标方案</h1>
+    <p>点一个你喜欢的，下方会记录选择。选定后我会把对应 SVG 栅格化成 <code>Sources/IconGen/AI Mac Cleaner.png</code>，打包时直接转成 .icns，替换现有图标。</p>
     <p class="legend">风格：macOS 圆角方块。下方 6 个方向分别是「延续现风格 / 清洁工具 / 字面标 / 扫描清洁 / 擦除 / 消失」。</p>
   </header>
 
@@ -149,7 +149,7 @@
         </svg>
       </div>
       <div class="name">橡皮擦</div>
-      <div class="desc">Expunge = 擦除。橡皮擦是「抹掉一个 app」最直白的隐喻。</div>
+      <div class="desc">AI Mac Cleaner = 擦除。橡皮擦是「抹掉一个 app」最直白的隐喻。</div>
     </div>
 
     <!-- 4. 放大镜 + 垃圾桶 -->
@@ -170,7 +170,7 @@
         </svg>
       </div>
       <div class="name">放大镜 + 垃圾桶</div>
-      <div class="desc">「先扫描、再清理」—— 对应 Expunge 的核心两步流程。</div>
+      <div class="desc">「先扫描、再清理」—— 对应 AI Mac Cleaner 的核心两步流程。</div>
     </div>
 
     <!-- 5. 字母 E 标 -->
@@ -215,7 +215,7 @@
 
 <div class="bar">
   <span class="pick">已选：<b id="pick">未选择</b></span>
-  <button id="ok" disabled onclick="report()">就选这个，落地到 Expunge.png</button>
+  <button id="ok" disabled onclick="report()">就选这个，落地到 AI Mac Cleaner.png</button>
 </div>
 
 <script>
@@ -234,9 +234,9 @@
   });
   function report() {
     if (!chosen) return;
-    // 仅本地反馈：真正落地由开发者把对应 SVG 栅格化后放进 Sources/IconGen/Expunge.png。
+    // 仅本地反馈：真正落地由开发者把对应 SVG 栅格化后放进 Sources/IconGen/AI Mac Cleaner.png。
     ok.textContent = '已记录：' + chosen;
-    setTimeout(() => { ok.textContent = '就选这个，落地到 Expunge.png'; }, 1800);
+    setTimeout(() => { ok.textContent = '就选这个，落地到 AI Mac Cleaner.png'; }, 1800);
   }
 </script>
 </body>

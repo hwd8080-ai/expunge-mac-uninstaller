@@ -68,7 +68,7 @@ classDiagram
         +save(AIMessage[]) Void
         +clearAll() Void
     }
-    note for ChatStore "哑 I/O：不裁剪、不做业务判断\n~/Library/Application Support/Expunge/askai-history.json\n目录自动创建 · 读写失败静默降级（不崩不弹窗）\n形状完全复刻 FeedbackStore"
+    note for ChatStore "哑 I/O：不裁剪、不做业务判断\n~/Library/Application Support/AIMacCleaner/askai-history.json\n目录自动创建 · 读写失败静默降级（不崩不弹窗）\n形状完全复刻 FeedbackStore"
 
     class ChatCommand {
         <<enumeration>>

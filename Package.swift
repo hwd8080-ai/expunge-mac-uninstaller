@@ -2,10 +2,10 @@
 import PackageDescription
 
 let package = Package(
-    name: "Expunge",
+    name: "AIMacCleaner",
     platforms: [.macOS(.v14)],
     products: [
-        .executable(name: "Expunge", targets: ["Expunge"])
+        .executable(name: "AIMacCleaner", targets: ["AIMacCleaner"])
     ],
     dependencies: [
         // OpenAI 兼容协议（customOpenAI）的成熟社区 SDK。
@@ -17,12 +17,12 @@ let package = Package(
     ],
     targets: [
         .executableTarget(
-            name: "Expunge",
+            name: "AIMacCleaner",
             dependencies: [
                 .product(name: "OpenAI", package: "OpenAI"),
                 .product(name: "SwiftAnthropic", package: "SwiftAnthropic")
             ],
-            path: "Sources/Expunge"
+            path: "Sources/AIMacCleaner"
         )
     ]
 )
