@@ -198,7 +198,6 @@ struct ProcessesView: View {
             detail: L10n.t("勾选要判断的进程后点按钮，AI 会评估风险并替你勾掉不安全的。",
                            "Select processes, then tap the button — the AI judges the risk and unsafes are unchecked."),
             actionTitle: L10n.t("AI 判断后果", "AI consequence"),
-            disabled: state.selectedProcessCount == 0,
             onReview: {
                 guard state.modelStore.isConfigured else {
                     showSettings = true
@@ -213,7 +212,8 @@ struct ProcessesView: View {
             onUndo: {
                 state.clearProcessVerdicts()
             },
-            onConfigure: { showSettings = true }
+            onConfigure: { showSettings = true },
+            disabled: state.selectedProcessCount == 0
         )
     }
 

@@ -13,7 +13,8 @@ struct AppsView: View {
     @State private var showFeedback = false
     @State private var executorOutput: [String] = []
     @State private var showSelfUninstalled = false
-    @State private var collapsed: Set<ArtifactCategory> = []
+    /// 默认按类别全部折叠，让用户按关心的分组逐一点开。
+    @State private var collapsed: Set<ArtifactCategory> = Set(ArtifactCategory.allCases)
     @State private var aiPhase: AIReviewBar.Phase = .idle
     @State private var showSettings = false
 
@@ -41,6 +42,10 @@ struct AppsView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .task { await state.loadAppList() }
+        // AI 复核结束后展开全部分组，方便用户查看每一类 AI 写下的评语。
+        .onChange(of: aiPhase) { _, phase in
+            if phase == .done { collapsed = [] }
+        }
         // 换了扫描目标就把上一轮 AI 结论清掉，否则会显示上一个 app 的判断。
         .onChange(of: state.matchedApp?.bundlePath) { _, _ in aiPhase = .idle }
         // 用退格键把搜索框删空，语义上等同于点 x：右侧回到首屏空态。

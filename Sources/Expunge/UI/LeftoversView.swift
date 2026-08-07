@@ -135,6 +135,9 @@ struct LeftoversView: View {
                     }
                     .padding(16)
                 }
+                .onChange(of: aiPhase) { _, phase in
+                    if phase == .done { collapsed = [] }
+                }
                 .background(Theme.bgCanvas)
                 bottomBar
             }
@@ -308,12 +311,9 @@ struct LeftoversView: View {
         collapsed = defaultCollapsed()
     }
 
-    /// 扫完默认展开哪些分组。
-    ///
-    /// 只展开最大的 3 组，不是全部：十几组全展开会让列表撑到很长，
-    /// 而窗口最小高度只有 560pt —— 用户一进来看到的全是路径，抓不到重点。
+    /// 默认全部折叠，让用户按关心的分组逐一点开。
     private func defaultCollapsed() -> Set<UUID> {
-        Set(state.leftoverGroups.dropFirst(3).map(\.id))
+        Set(state.leftoverGroups.map(\.id))
     }
 
     private func runRemoval(userData: UserDataDisposition) {
