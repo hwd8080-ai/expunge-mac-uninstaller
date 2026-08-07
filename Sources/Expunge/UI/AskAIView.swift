@@ -390,114 +390,101 @@ struct AskAIView: View {
 
     private var composer: some View {
         VStack(spacing: 0) {
-            Divider()
-            GeometryReader { geo in
-                ZStack(alignment: .topLeading) {
-                    HStack(alignment: .bottom, spacing: 10) {
-                    ZStack(alignment: .topLeading) {
-                        // placeholder：TextEditor 没有内置 placeholder，用 overlay 实现。
-                        if input.isEmpty {
-                            Text(L10n.t("描述你想清理什么，回车发送（⌥回车换行）…",
-                                         "Describe what to clean up — Return to send, ⌥Return for a new line…"))
-                                .font(.system(size: 12.5))
-                                .foregroundStyle(.tertiary)
-                                .lineSpacing(2)
-                                // 外层 ZStack 已经带 10/8 内边距，这里不再加，
-                                // 否则暗文会被再往下推一截，和光标/输入文字错位。
-                                .allowsHitTesting(false)
-                        }
+            // 命令面板放在输入区上方，和输入框左对齐，不覆盖输入框本身。
+            if showSlashPalette {
+                SlashPalette(items: slashMatches,
+                             selection: slashSelection,
+                             onHover: { slashSelection = $0 },
+                             onPick:  { acceptSlash($0) })
+                    .frame(height: 102)
+                    .padding(.horizontal, 10)
+                    .padding(.top, 6)
+                    .padding(.bottom, 4)
+                    .transition(.opacity)
+            }
 
-                        ComposerTextView(
-                            text: $input,
-                            isFocused: Binding<Bool>(
-                                get: { inputFocused },
-                                set: { inputFocused = $0 }
-                            ),
-                            onReturn: {
-                                if let item = slashHighlighted {
-                                    acceptSlash(item)
-                                    return true
-                                }
-                                if canSend {
-                                    send(input)
-                                    return true
-                                }
-                                return true // 空输入时回车也不让系统响铃
-                            },
-                            onOptionReturn: { input.append("\n") },
-                            onUp: {
-                                guard showSlashPalette else { return false }
-                                slashSelection = (slashSelection - 1 + slashMatches.count) % slashMatches.count
-                                return true
-                            },
-                            onDown: {
-                                guard showSlashPalette else { return false }
-                                slashSelection = (slashSelection + 1) % slashMatches.count
-                                return true
-                            },
-                            onTab: {
-                                guard let item = slashHighlighted else { return false }
-                                input = item.token
-                                return true
-                            },
-                            onEscape: {
-                                guard showSlashPalette else { return false }
-                                slashDismissed = true
+            Divider()
+
+            HStack(alignment: .bottom, spacing: 10) {
+                ZStack(alignment: .topLeading) {
+                    // placeholder：TextEditor 没有内置 placeholder，用 overlay 实现。
+                    if input.isEmpty {
+                        Text(L10n.t("描述你想清理什么，回车发送（⌥回车换行）…",
+                                     "Describe what to clean up — Return to send, ⌥Return for a new line…"))
+                            .font(.system(size: 12.5))
+                            .foregroundStyle(.tertiary)
+                            .lineSpacing(2)
+                            // 与 NSTextView 的内边距对齐，避免光标和暗文不在同一高度。
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 8)
+                            .allowsHitTesting(false)
+                    }
+
+                    ComposerTextView(
+                        text: $input,
+                        isFocused: Binding<Bool>(
+                            get: { inputFocused },
+                            set: { inputFocused = $0 }
+                        ),
+                        slashSelection: $slashSelection,
+                        slashMatches: slashMatches,
+                        slashDismissed: $slashDismissed,
+                        onReturn: {
+                            if let item = slashHighlighted {
+                                acceptSlash(item)
                                 return true
                             }
-                        )
-                        .frame(height: ComposerMetrics.inputHeight, alignment: .topLeading)
-                    }
-                    .overlay(alignment: .bottomTrailing) {
-                        Text(counterText)
-                            .font(.system(size: 9.5))
-                            // 等宽数字：否则 999 → 1000 时宽度跳动。
-                            .monospacedDigit()
-                            .foregroundStyle(counterStyle)
-                            .padding(.trailing, 36)
-                            .padding(.bottom, 6)
-                            .help(overLimit
-                                  ? L10n.t("已超出 \(ChatPolicy.maxInputChars) 字上限，请精简后发送",
-                                           "Over the \(ChatPolicy.maxInputChars)-character limit — please shorten it")
-                                  : "")
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 8)
-                    .background(Theme.bgCanvas, in: RoundedRectangle(cornerRadius: ComposerMetrics.corner))
-                    .overlay(RoundedRectangle(cornerRadius: ComposerMetrics.corner)
-                        .stroke(inputFocused ? Theme.accentBorder : Theme.divider, lineWidth: 1))
-
-                    Button { send(input) } label: {
-                        Image(systemName: "arrow.up")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(width: 26, height: 26)
-                            .background(canSend ? Theme.accent : Color.secondary.opacity(0.4), in: Circle())
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(!canSend)
+                            if canSend {
+                                send(input)
+                                return true
+                            }
+                            return true // 空输入时回车也不让系统响铃
+                        },
+                        onOptionReturn: { input.append("\n") },
+                        onTab: {
+                            guard let item = slashHighlighted else { return false }
+                            input = item.token
+                            return true
+                        },
+                        onEscape: {
+                            guard showSlashPalette else { return false }
+                            slashDismissed = true
+                            return true
+                        }
+                    )
+                    .frame(height: ComposerMetrics.inputHeight, alignment: .topLeading)
                 }
-                .padding(10)
-                .background(Theme.bgSurface)
-
-                // 斜杠面板：放在输入区上面的独立层，而不是嵌在输入框内部。
-                // 之前用 `.overlay(alignment: .topLeading)` 挂在 HStack 上会被裁剪到
-                // 输入区那 67pt 高度里，导致展示不全、遮挡输入、无法滚动。
-                if showSlashPalette {
-                    SlashPalette(items: slashMatches,
-                                 selection: slashSelection,
-                                 onHover: { slashSelection = $0 },
-                                 onPick:  { acceptSlash($0) })
-                        .padding(.leading, 12)
-                        // 把自己的 .top 对齐基准挪到「自己底边 + 8」,
-                        // 于是底边落在输入区顶边上方 8pt —— 面板整个浮在输入框之上。
-                        .alignmentGuide(.top) { $0[.bottom] + 8 }
-                        // 宽度拉到几乎占满输入区，避免右边留大片空白。
-                        .frame(width: max(280, geo.size.width - 24))
-                        .transition(.opacity)
+                .overlay(alignment: .bottomTrailing) {
+                    Text(counterText)
+                        .font(.system(size: 9.5))
+                        // 等宽数字：否则 999 → 1000 时宽度跳动。
+                        .monospacedDigit()
+                        .foregroundStyle(counterStyle)
+                        .padding(.trailing, 36)
+                        .padding(.bottom, 6)
+                        .help(overLimit
+                              ? L10n.t("已超出 \(ChatPolicy.maxInputChars) 字上限，请精简后发送",
+                                       "Over the \(ChatPolicy.maxInputChars)-character limit — please shorten it")
+                              : "")
                 }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(Theme.bgCanvas, in: RoundedRectangle(cornerRadius: ComposerMetrics.corner))
+                .overlay(RoundedRectangle(cornerRadius: ComposerMetrics.corner)
+                    .stroke(inputFocused ? Theme.accentBorder : Theme.divider, lineWidth: 1))
+
+                Button { send(input) } label: {
+                    Image(systemName: "arrow.up")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 26, height: 26)
+                        .background(canSend ? Theme.accent : Color.secondary.opacity(0.4), in: Circle())
+                }
+                .buttonStyle(.plain)
+                .disabled(!canSend)
             }
-            }
+            .padding(10)
+            .background(Theme.bgSurface)
             .animation(.easeOut(duration: 0.12), value: showSlashPalette)
             .onChange(of: input) { _, newValue in
                 // 硬性截断到上限：防止输入框继续累积，确保计数器永远不超过 maxInputChars。
@@ -509,6 +496,7 @@ struct AskAIView: View {
                 slashDismissed = false
                 slashSelection = 0
             }
+
             // 底部提示行：只保留左边那句能力边界说明。
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(L10n.t("Agent 只能调用 Expunge 的 \(SkillRegistry.all.count) 个 skill，没有通用 shell，也不会读取文件内容",
@@ -698,10 +686,14 @@ private struct ComposerTextView: NSViewRepresentable {
     @Binding var text: String
     @Binding var isFocused: Bool
 
+    // 斜杠面板的状态直接通过 Binding 传进来，避免 closure 在 updateNSView 中
+    // 同步不及时导致上下键无法移动选择。
+    @Binding var slashSelection: Int
+    var slashMatches: [SlashCommandItem]
+    @Binding var slashDismissed: Bool
+
     var onReturn: () -> Bool
     var onOptionReturn: () -> Void
-    var onUp: () -> Bool
-    var onDown: () -> Bool
     var onTab: () -> Bool
     var onEscape: () -> Bool
 
@@ -738,10 +730,12 @@ private struct ComposerTextView: NSViewRepresentable {
         }
         textView.onReturn = onReturn
         textView.onOptionReturn = onOptionReturn
-        textView.onUp = onUp
-        textView.onDown = onDown
         textView.onTab = onTab
         textView.onEscape = onEscape
+
+        textView.slashSelection = _slashSelection
+        textView.slashMatches = slashMatches
+        textView.slashDismissed = _slashDismissed
 
         scrollView.documentView = textView
         context.coordinator.textView = textView
@@ -753,18 +747,19 @@ private struct ComposerTextView: NSViewRepresentable {
         if textView.string != text {
             textView.string = text
         }
-        // 每次 body 重算都会生成新的 closure（捕获最新 state），必须同步回 NSTextView，
-        // 否则按键处理用的还是第一次创建时捕获的旧值（比如斜杠面板明明已出现，
-        // 上下键却还以为没出现，直接走默认光标移动）。
+        // 每次 body 重算都会生成新的 closure，必须同步回 NSTextView。
         textView.onReturn = onReturn
         textView.onOptionReturn = onOptionReturn
-        textView.onUp = onUp
-        textView.onDown = onDown
         textView.onTab = onTab
         textView.onEscape = onEscape
         textView.onFocusChange = { focused in
             DispatchQueue.main.async { self.isFocused = focused }
         }
+
+        // 斜杠面板状态通过 Binding 同步，确保上下键读取到的永远是最新值。
+        textView.slashSelection = _slashSelection
+        textView.slashMatches = slashMatches
+        textView.slashDismissed = _slashDismissed
 
         if isFocused, let window = textView.window, window.firstResponder != textView {
             window.makeFirstResponder(textView)
@@ -797,10 +792,19 @@ private final class KeyHandlingTextView: NSTextView {
     var onFocusChange: ((Bool) -> Void)?
     var onReturn: (() -> Bool)?
     var onOptionReturn: (() -> Void)?
-    var onUp: (() -> Bool)?
-    var onDown: (() -> Bool)?
     var onTab: (() -> Bool)?
     var onEscape: (() -> Bool)?
+
+    // 斜杠面板状态直接通过 SwiftUI Binding 修改，避免 closure 不同步。
+    var slashSelection: Binding<Int>?
+    var slashMatches: [SlashCommandItem] = []
+    var slashDismissed: Binding<Bool>?
+
+    private var isSlashPaletteVisible: Bool {
+        guard !slashMatches.isEmpty else { return false }
+        guard slashDismissed?.wrappedValue == false else { return false }
+        return string.hasPrefix("/")
+    }
 
     override func becomeFirstResponder() -> Bool {
         let ok = super.becomeFirstResponder()
@@ -826,9 +830,15 @@ private final class KeyHandlingTextView: NSTextView {
             }
             if onReturn?() == true { return }
         case 126: // Up
-            if onUp?() == true { return }
+            if isSlashPaletteVisible, let selection = slashSelection {
+                selection.wrappedValue = (selection.wrappedValue - 1 + slashMatches.count) % slashMatches.count
+                return
+            }
         case 125: // Down
-            if onDown?() == true { return }
+            if isSlashPaletteVisible, let selection = slashSelection {
+                selection.wrappedValue = (selection.wrappedValue + 1) % slashMatches.count
+                return
+            }
         case 48: // Tab
             if onTab?() == true { return }
         case 53: // Esc
