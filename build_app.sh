@@ -28,13 +28,14 @@ test -f "$BIN" || { echo "✗ 编译产物未找到: $BIN"; exit 1; }
 
 echo "━━ 2/5 生成 icon ━━"
 ICON_DIR="$(mktemp -d)"
-# 用目录里的静态源图（Sources/IconGen/Expunge.png）转 icns，不再用代码生成。
-# 想换图标：直接替换这张 PNG（建议 1024x1024、圆角或透明背景），
-# 或改 Sources/IconGen/Expunge.svg 后重新栅格化成 Expunge.png。
+# 图标源图：Sources/IconGen/Expunge.png（1024x1024）。
+# 想换图标：编辑 Sources/IconGen/render.swift 后跑 `swift Sources/IconGen/render.swift`。
+# render 脚本渲染的是与 UI 顶部品牌区完全一致的 wand.and.rays SF Symbol
+# + Petrol Blue 渐变 + 圆角矩形（cornerRadius 1024*7/24）。
 ICON_PNG="$PROJECT_DIR/Sources/IconGen/Expunge.png"
 if [ ! -f "$ICON_PNG" ]; then
     echo "✗ 找不到图标源图：$ICON_PNG"
-    echo "  放一张 1024x1024 的 PNG 到此路径，或编辑 Sources/IconGen/Expunge.svg 后重新栅格化。"
+    echo "  跑 `swift Sources/IconGen/render.swift` 重新生成。"
     exit 1
 fi
 cp "$ICON_PNG" "$ICON_DIR/icon_1024.png"

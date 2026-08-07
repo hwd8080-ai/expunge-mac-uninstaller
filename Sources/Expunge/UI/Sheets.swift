@@ -403,7 +403,7 @@ struct FeedbackSheet: View {
 
     private func titleText() -> String {
         let name = targetNameForTitle ?? L10n.t("扫描规则", "scan rules")
-        return "[误报] \(reason.displayName)：\(name)"
+        return "\(L10n.t("[误报]", "[False positive]")) \(reason.displayName)：\(name)"
     }
 
     private func bodyText() -> String {
