@@ -391,8 +391,9 @@ struct AskAIView: View {
     private var composer: some View {
         VStack(spacing: 0) {
             Divider()
-            ZStack(alignment: .topLeading) {
-                HStack(alignment: .bottom, spacing: 10) {
+            GeometryReader { geo in
+                ZStack(alignment: .topLeading) {
+                    HStack(alignment: .bottom, spacing: 10) {
                     ZStack(alignment: .topLeading) {
                         // placeholder：TextEditor 没有内置 placeholder，用 overlay 实现。
                         if input.isEmpty {
@@ -400,9 +401,9 @@ struct AskAIView: View {
                                          "Describe what to clean up — Return to send, ⌥Return for a new line…"))
                                 .font(.system(size: 12.5))
                                 .foregroundStyle(.tertiary)
-                                // 与外层 TextEditor 的 padding 严格对齐，避免光标和暗文不在同一高度。
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 8)
+                                .lineSpacing(2)
+                                // 外层 ZStack 已经带 10/8 内边距，这里不再加，
+                                // 否则暗文会被再往下推一截，和光标/输入文字错位。
                                 .allowsHitTesting(false)
                         }
 
@@ -488,11 +489,14 @@ struct AskAIView: View {
                                  onHover: { slashSelection = $0 },
                                  onPick:  { acceptSlash($0) })
                         .padding(.leading, 12)
-                        // 把自己的 .top 对齐基准挪到「自己底边 + 8」，
+                        // 把自己的 .top 对齐基准挪到「自己底边 + 8」,
                         // 于是底边落在输入区顶边上方 8pt —— 面板整个浮在输入框之上。
                         .alignmentGuide(.top) { $0[.bottom] + 8 }
+                        // 宽度拉到几乎占满输入区，避免右边留大片空白。
+                        .frame(width: max(280, geo.size.width - 24))
                         .transition(.opacity)
                 }
+            }
             }
             .animation(.easeOut(duration: 0.12), value: showSlashPalette)
             .onChange(of: input) { _, newValue in
@@ -749,6 +753,19 @@ private struct ComposerTextView: NSViewRepresentable {
         if textView.string != text {
             textView.string = text
         }
+        // 每次 body 重算都会生成新的 closure（捕获最新 state），必须同步回 NSTextView，
+        // 否则按键处理用的还是第一次创建时捕获的旧值（比如斜杠面板明明已出现，
+        // 上下键却还以为没出现，直接走默认光标移动）。
+        textView.onReturn = onReturn
+        textView.onOptionReturn = onOptionReturn
+        textView.onUp = onUp
+        textView.onDown = onDown
+        textView.onTab = onTab
+        textView.onEscape = onEscape
+        textView.onFocusChange = { focused in
+            DispatchQueue.main.async { self.isFocused = focused }
+        }
+
         if isFocused, let window = textView.window, window.firstResponder != textView {
             window.makeFirstResponder(textView)
         } else if !isFocused, let window = textView.window, window.firstResponder == textView {
@@ -849,7 +866,7 @@ private struct SlashPalette: View {
                     }
                 }
                 // 让行宽铺满面板，避免右侧留大片空白。
-                .frame(minWidth: 280, maxWidth: 380, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             // 键盘上下键切换选中项时，自动滚动到可视区。
             .onChange(of: selection) { _, new in
@@ -859,8 +876,8 @@ private struct SlashPalette: View {
                 }
             }
         }
-        // 默认显示 3 个命令（超出需滚动），宽度随内容伸缩，整体向右拉长。
-        .frame(minWidth: 280, maxWidth: 380, maxHeight: 102)
+        // 默认显示 3 个命令（超出需滚动），宽度由调用方通过 .frame(width:) 决定。
+        .frame(maxWidth: .infinity, maxHeight: 102)
         .background(Theme.bgSurface, in: RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.divider, lineWidth: 1))
         .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
