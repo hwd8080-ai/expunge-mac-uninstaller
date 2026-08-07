@@ -400,8 +400,9 @@ struct AskAIView: View {
                                          "Describe what to clean up — Return to send, ⌥Return for a new line…"))
                                 .font(.system(size: 12.5))
                                 .foregroundStyle(.tertiary)
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 5)
+                                // 与外层 TextEditor 的 padding 严格对齐，避免光标和暗文不在同一高度。
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 8)
                                 .allowsHitTesting(false)
                         }
 
@@ -701,19 +702,31 @@ private struct SlashPalette: View {
     let onPick: (SlashCommandItem) -> Void
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                ForEach(Array(items.enumerated()), id: \.element.id) { idx, item in
-                    row(item, active: idx == selection)
-                        .contentShape(Rectangle())
-                        .onHover { if $0 { onHover(idx) } }
-                        .onTapGesture { onPick(item) }
-                    if idx < items.count - 1 { Divider().opacity(0.6) }
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(items.enumerated()), id: \.element.id) { idx, item in
+                        row(item, active: idx == selection)
+                            .id(item.id)
+                            .contentShape(Rectangle())
+                            .onHover { if $0 { onHover(idx) } }
+                            .onTapGesture { onPick(item) }
+                        if idx < items.count - 1 { Divider().opacity(0.6) }
+                    }
+                }
+                // 让行宽铺满面板，避免右侧留大片空白。
+                .frame(minWidth: 220, maxWidth: 280, alignment: .leading)
+            }
+            // 键盘上下键切换选中项时，自动滚动到可视区。
+            .onChange(of: selection) { _, new in
+                guard let id = items[safe: new]?.id else { return }
+                withAnimation(.easeOut(duration: 0.08)) {
+                    proxy.scrollTo(id, anchor: .center)
                 }
             }
         }
-        // 默认显示约 3 个命令（超出需滚动），宽度随内容伸缩，row 内用 Spacer 铺满。
-        .frame(minWidth: 220, maxWidth: 280, maxHeight: 130)
+        // 默认显示 3 个命令（超出需滚动），宽度随内容伸缩。
+        .frame(minWidth: 220, maxWidth: 280, maxHeight: 102)
         .background(Theme.bgSurface, in: RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.divider, lineWidth: 1))
         .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
@@ -725,18 +738,24 @@ private struct SlashPalette: View {
                 .font(.system(size: 12))
                 .foregroundStyle(Theme.accent)
                 .frame(width: 16)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(item.token)
-                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                Text(item.detail)
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(.secondary)
-            }
-            Spacer(minLength: 0)
+            Text(item.token)
+                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+            Spacer(minLength: 8)
+            Text(item.detail)
+                .font(.system(size: 10.5))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, 7)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(active ? Theme.accentSubtle : Color.clear)
+    }
+}
+
+private extension Array {
+    subscript(safe index: Int) -> Element? {
+        indices.contains(index) ? self[index] : nil
     }
 }
 
