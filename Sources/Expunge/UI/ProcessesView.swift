@@ -218,32 +218,31 @@ struct ProcessesView: View {
     }
 
     private var bottomBar: some View {
-        HStack(spacing: 8) {
-            SelectionToolbar(
-                selectedCount: state.selectedProcessCount,
-                totalCount: filteredProcesses.filter(\.isKillable).count,
-                onSelectAll: { state.setAllVisibleSelected(true) },
-                onDeselectAll: { state.setAllVisibleSelected(false) }
-            )
-            Spacer()
+        let killable = filteredProcesses.filter(\.isKillable)
+        return BottomActionBar(
+            selectedCount: state.selectedProcessCount,
+            totalCount: killable.count,
+            selectedSize: state.selectedMemoryBytes,
+            hint: L10n.t("默认全不选，逐项确认", "Nothing selected by default; confirm each"),
+            onToggleAll: { on in
+                for p in killable {
+                    if on { state.selectedPids.insert(p.pid) } else { state.selectedPids.remove(p.pid) }
+                }
+            }
+        ) {
             Button {
                 showKillConfirm = true
             } label: {
-                Label(L10n.t("结束所选 (\(state.selectedProcessCount))",
-                              "End selected (\(state.selectedProcessCount))"),
+                Label(L10n.t("结束所选…", "End selected…"),
                       systemImage: "xmark.circle.fill")
             }
             .buttonStyle(.borderedProminent)
-            .controlSize(.small)
+            .tint(Theme.destructive)
             .disabled(state.selectedProcessCount == 0)
             .help(state.selectedProcessCount == 0
                   ? L10n.t("先勾选要结束的进程", "Select processes first")
                   : L10n.t("结束选中的进程（二次确认）", "End the selected processes (with confirmation)"))
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(Theme.bgSurface)
-        .overlay(alignment: .top) { Divider() }
     }
 
     /// 搜索过滤：按进程名、命令行参数或端口号匹配。
