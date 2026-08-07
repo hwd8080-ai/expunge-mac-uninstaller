@@ -48,8 +48,9 @@ struct AIModelSettingsSheet: View {
             PageHeader(title: L10n.t("模型配置", "Model settings"),
                        subtitle: L10n.t("可配置多个模型档，设置其中一个为默认；对话框里还能随时下拉切换。「问 AI」是纯 AI Agent，不配置则发消息时会提示先来这里填好模型。",
                                         "Configure multiple model profiles and mark one as default; you can also switch on the fly in the chat. Ask AI is a pure AI agent — unconfigured, it'll ask you to set up a model before sending.")) {
-                Button(L10n.t("完成", "Done")) { save(); dismiss() }
+                Button(L10n.t("取消", "Cancel")) { dismiss() }
                     .controlSize(.small)
+                    .keyboardShortcut(.cancelAction)
             }
 
             Divider()
