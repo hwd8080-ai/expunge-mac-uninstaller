@@ -75,7 +75,7 @@
 
 ### 下载 DMG（推荐）
 
-从 [Releases](https://github.com/hwd8080-ai/ai-mac-cleaner/releases) 下载 `AI Mac Cleaner-<版本>.dmg` 和同名 `.sha256`。先校验：
+从 [Releases](https://github.com/hwd8080-ai/AIMacCleaner/releases) 下载 `AI Mac Cleaner-<版本>.dmg` 和同名 `.sha256`。先校验：
 
 ```bash
 shasum -a 256 -c AI Mac Cleaner-<版本>.dmg.sha256   # 应输出 OK
@@ -86,8 +86,8 @@ shasum -a 256 -c AI Mac Cleaner-<版本>.dmg.sha256   # 应输出 OK
 ### 从源码构建
 
 ```bash
-git clone https://github.com/hwd8080-ai/ai-mac-cleaner.git
-cd ai-mac-cleaner
+git clone https://github.com/hwd8080-ai/AIMacCleaner.git
+cd AIMacCleaner
 ./build_app.sh                       # → /Applications/AIMacCleaner.app
 open /Applications/AIMacCleaner.app
 ```
