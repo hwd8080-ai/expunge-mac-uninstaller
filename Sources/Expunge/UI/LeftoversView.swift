@@ -128,7 +128,9 @@ struct LeftoversView: View {
                                              "These are heuristic results — nothing is checked by default."),
                                message: L10n.t("Expunge 通过反查「有没有活着的已安装应用认领这份数据」来判断残留，可能存在误判。删除前请确认路径你认得——不确定就先跳过。",
                                                "Expunge decides by checking whether any installed app still claims the data, so misjudgements are possible. Make sure you recognise each path — when in doubt, skip it."))
-                        aiBar
+                        if !state.visibleLeftoverGroups.flatMap(\.artifacts).isEmpty {
+                            aiBar
+                        }
                         groupSections
                     }
                     .padding(16)

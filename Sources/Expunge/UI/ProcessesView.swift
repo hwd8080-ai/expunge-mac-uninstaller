@@ -332,8 +332,8 @@ private struct ProcessVerdictRow: View {
 
     private var color: Color {
         switch verdict.level {
-        case .high:   return Theme.riskUserData
-        case .medium: return Theme.warning
+        case .high:   return Theme.riskUserDataText
+        case .medium: return Theme.riskUncertainText
         case .low:    return Theme.success
         }
     }
@@ -349,7 +349,7 @@ private struct ProcessVerdictRow: View {
         HStack(alignment: .top, spacing: 7) {
             Image(systemName: icon)
                 .font(.system(size: 10))
-                .foregroundStyle(color)
+                .foregroundStyle(.secondary)
                 .padding(.top, 2)
             Text(verdict.text)
                 .font(.system(size: 11.5))

@@ -27,9 +27,39 @@
 ![孤儿扫描](screenshots/orphansCN.png)
 
 ### 🤖 AI Agent（问 AI）
-用自然语言描述目标——「把 Cursor 彻底卸干净」或「扫一遍所有残留」——内置 AI Agent 会自己调用相应 skill、查看结果、出计划。**任何删除操作都要你确认后才执行。**用 `/remember` 记下纠正过的结论，跨会话也不会丢。
+用自然语言描述目标——「把 Cursor 彻底卸干净」或「扫一遍所有残留」——内置 AI Agent 会自己调用相应 skill、查看结果、出计划。**任何删除操作都要你确认后才执行。**
 
 ![AI Agent](screenshots/agentCN.png)
+
+#### 配置模型
+打开 ⚙ **设置 → 配置 AI 模型**，填入 API Key。支持 OpenAI、Anthropic 及兼容服务商。支持多个模型档，在问 AI 工具栏随时切换。
+
+<!-- TODO: 插入模型配置截图 -->
+<!-- ![模型配置](screenshots/model-configCN.png) -->
+
+#### 斜杠命令
+在输入框输入 `/` 查看可用命令：
+
+| 命令 | 功能 |
+|------|------|
+| `/new` | 开始新会话（清空对话历史） |
+| `/reset` | 重置 Agent 上下文 |
+| `/remember` | 记下一件事，`/new` 和重启都不会丢 |
+
+<!-- TODO: 插入斜杠命令截图 -->
+<!-- ![斜杠命令](screenshots/slash-commandsCN.png) -->
+
+#### AI 判断后果（进程）
+勾选一个或多个进程，点 **AI 判断后果**——Agent 判断结束各个进程的后果。低风险的自动勾选，其余取消勾选并写明理由。
+
+<!-- TODO: 插入 AI 判断后果截图 -->
+<!-- ![AI 判断后果](screenshots/ai-consequenceCN.png) -->
+
+#### AI 复核（应用 / 残留）
+在应用或残留页点 **让 AI 复核** / **让 AI 帮我判断**。Agent 逐项检查你的清理清单，自动取消勾选建议保留的项（登录态、共享数据、凭证），并在对应行下写明理由。
+
+<!-- TODO: 插入 AI 复核截图 -->
+<!-- ![AI 复核](screenshots/ai-reviewCN.png) -->
 
 ### 🖥️ 进程管理
 列出 Mac 上所有后台服务类进程——node 服务、Python 脚本、Docker 容器、Brew service。显示内存占用、CPU%、**监听端口**（如 `:3000`、`:8080`）。按端口号搜索，精确找到占用端口的进程，一键结束。

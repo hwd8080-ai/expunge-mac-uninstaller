@@ -232,7 +232,9 @@ struct AppsView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
                         summaryCard
-                        aiBar
+                        if !state.artifacts.isEmpty {
+                            aiBar
+                        }
                         SectionLabel(text: L10n.t("扫描结果 · 按类别分组", "Results · grouped by category"),
                                      onSelectAll: { state.selectAll() },
                                      onDeselectAll: { state.deselectAll() })
