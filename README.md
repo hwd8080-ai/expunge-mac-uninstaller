@@ -10,8 +10,7 @@ Free, open-source, and thorough. Uninstall any Mac app — and sweep up every tr
 
 > **System Requirements:** macOS 14 (Sonoma) or later. Intel & Apple Silicon. [Why macOS 14?](#system-requirements)
 
-<!-- TODO: 插入主界面截图 -->
-<!-- ![Expunge main interface](screenshots/main.png) -->
+![Expunge main interface](screenshots/main.png)
 
 ---
 
@@ -20,26 +19,22 @@ Free, open-source, and thorough. Uninstall any Mac app — and sweep up every tr
 ### 🧹 Deep Uninstall
 Select an app, Expunge finds everything connected to it. Not just the `.app` bundle — dependencies, preferences, caches, logs, containers, and CLI tools installed by package managers. Confirm once, it's all gone.
 
-<!-- TODO: 插入深度卸载截图 -->
-<!-- ![Deep uninstall](screenshots/uninstall.png) -->
+![Deep uninstall](screenshots/uninstall.png)
 
 ### 🔍 Orphan Scanner
 Apps you deleted months ago often leave data behind. The orphan scanner reverse-looks: which `~/Library` directories have no living app to claim them? Finds forgotten leftovers you didn't even know existed.
 
-<!-- TODO: 插入孤儿扫描截图 -->
-<!-- ![Orphan scanner](screenshots/orphans.png) -->
+![Orphan scanner](screenshots/orphans.png)
 
 ### 🤖 AI Agent ("Ask AI")
 Describe what you want in natural language — "uninstall Cursor completely" or "scan all leftovers" — and the built-in AI agent calls the right skills, inspects the results, and drafts a plan. Nothing is removed without your explicit confirmation. Saves corrections across sessions with `/remember`.
 
-<!-- TODO: 插入 AI Agent 截图 -->
-<!-- ![AI Agent](screenshots/agent.png) -->
+![AI Agent](screenshots/agent.png)
 
 ### 🖥️ Process Manager
 See every background process running on your Mac — node servers, Python scripts, Docker containers, Brew services. Shows memory usage, CPU %, and **listening ports** (e.g. `:3000`, `:8080`). Search by port number to find exactly which process is holding it. Kill with one click.
 
-<!-- TODO: 插入进程管理截图 -->
-<!-- ![Process manager](screenshots/processes.png) -->
+![Process manager](screenshots/processes.png)
 
 ### 🛡️ Safety by Design
 - **Trash, never delete.** Everything goes to Trash first. Empty it when you're ready.

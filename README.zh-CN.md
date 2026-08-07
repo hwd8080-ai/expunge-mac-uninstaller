@@ -10,8 +10,7 @@
 
 > **系统要求：** macOS 14 (Sonoma) 及以上。支持 Intel 和 Apple Silicon。[为什么需要 macOS 14？](#系统要求)
 
-<!-- TODO: 插入主界面截图 -->
-<!-- ![Expunge 主界面](screenshots/main.png) -->
+![Expunge 主界面](screenshots/mainCN.png)
 
 ---
 
@@ -20,26 +19,22 @@
 ### 🧹 深度卸载
 选中一个应用，Expunge 找出和它有关的一切。不只是 `.app` 包体——依赖、偏好设置、缓存、日志、容器、包管理器安装的 CLI 工具，全部列出。确认一次，全部清掉。
 
-<!-- TODO: 插入深度卸载截图 -->
-<!-- ![深度卸载](screenshots/uninstall.png) -->
+![深度卸载](screenshots/uninstallCN.png)
 
 ### 🔍 孤儿残留扫描
 几个月前删掉的应用，数据往往还留在 `~/Library` 里。孤儿扫描反向查找：哪些目录已经没有活着的 app 认领？找出你根本不知道还存在的残留。
 
-<!-- TODO: 插入孤儿扫描截图 -->
-<!-- ![孤儿扫描](screenshots/orphans.png) -->
+![孤儿扫描](screenshots/orphansCN.png)
 
 ### 🤖 AI Agent（问 AI）
 用自然语言描述目标——「把 Cursor 彻底卸干净」或「扫一遍所有残留」——内置 AI Agent 会自己调用相应 skill、查看结果、出计划。**任何删除操作都要你确认后才执行。**用 `/remember` 记下纠正过的结论，跨会话也不会丢。
 
-<!-- TODO: 插入 AI Agent 截图 -->
-<!-- ![AI Agent](screenshots/agent.png) -->
+![AI Agent](screenshots/agentCN.png)
 
 ### 🖥️ 进程管理
 列出 Mac 上所有后台服务类进程——node 服务、Python 脚本、Docker 容器、Brew service。显示内存占用、CPU%、**监听端口**（如 `:3000`、`:8080`）。按端口号搜索，精确找到占用端口的进程，一键结束。
 
-<!-- TODO: 插入进程管理截图 -->
-<!-- ![进程管理](screenshots/processes.png) -->
+![进程管理](screenshots/processesCN.png)
 
 ### 🛡️ 安全设计
 - **默认走废纸篓。** 绝不直接 `rm`。清空废纸篓前都能找回。
