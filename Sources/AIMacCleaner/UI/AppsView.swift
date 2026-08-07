@@ -76,7 +76,10 @@ struct AppsView: View {
         }
         .alert(L10n.t("AI Mac Cleaner 已卸载", "AI Mac Cleaner uninstalled"),
                isPresented: $showSelfUninstalled) {
-            Button(L10n.t("退出 AI Mac Cleaner", "Quit AI Mac Cleaner")) { NSApp.terminate(nil) }
+            Button(L10n.t("退出 AI Mac Cleaner", "Quit AI Mac Cleaner")) {
+                Self.cleanupSelfPreferences()
+                NSApp.terminate(nil)
+            }
         } message: {
             Text(L10n.t("应用已移到废纸篓。清空废纸篓即可彻底移除本程序。",
                         "The app has been moved to the Trash. Empty the Trash to remove it completely."))
@@ -473,6 +476,23 @@ struct AppsView: View {
         // 不刷新的话左侧还会显示刚删掉的 app。
         state.invalidateInventory()
         Task { await state.scan() }
+    }
+
+    /// 自卸载时清除本应用的 UserDefaults 持久化文件。
+    ///
+    /// RemovalExecutor 已经把 `~/Library/Preferences/<bundle-id>.plist` 删了，
+    /// 但 `cfprefsd` 守护进程仍在内存中缓存着这个域，会在 app 退出前重建 plist 文件。
+    /// 先 `removePersistentDomain` 通知 cfprefsd 丢弃该域，再短暂等待让它处理完毕，
+    /// 最后补删一次文件做双保险 —— 这样 app 退出后 plist 不会再复活。
+    private static func cleanupSelfPreferences() {
+        guard let bid = Bundle.main.bundleIdentifier else { return }
+        UserDefaults.standard.removePersistentDomain(forName: bid)
+        // cfprefsd 处理 removePersistentDomain 是异步的，给一点时间。
+        Thread.sleep(forTimeInterval: 0.3)
+        let plist = "\(NSHomeDirectory())/Library/Preferences/\(bid).plist"
+        if FileManager.default.fileExists(atPath: plist) {
+            try? FileManager.default.removeItem(atPath: plist)
+        }
     }
 }
 

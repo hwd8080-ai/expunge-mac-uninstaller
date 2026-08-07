@@ -34,7 +34,7 @@
 ### 方式 3：终端命令
 
 ```bash
-open "/Users/hwd7500/Documents/ai-mac-cleaner/design-prototype/index.html"
+open "/Users/hwd7500/Documents/AIMacCleaner/design-prototype/index.html"
 ```
 
 ### 从 ZIP 解压后使用
