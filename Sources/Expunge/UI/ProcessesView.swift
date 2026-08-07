@@ -119,7 +119,7 @@ struct ProcessesView: View {
                                        : L10n.t("AI 判断后果", "AI consequence"),
                           systemImage: "sparkles")
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(AIButtonStyle())
                 .controlSize(.small)
                 .disabled(state.selectedProcessCount == 0 || juryRunning)
                 .help(state.modelStore.isConfigured
