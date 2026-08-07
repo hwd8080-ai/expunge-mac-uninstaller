@@ -406,49 +406,46 @@ struct AskAIView: View {
                                 .allowsHitTesting(false)
                         }
 
-                        TextEditor(text: $input)
-                            .font(.system(size: 12.5))
-                            .lineSpacing(2)
-                            .textEditorStyle(.plain)
-                            .scrollContentBackground(.hidden)
-                            .background(Color.clear)
-                            .scrollIndicators(.visible)
-                            .focused($inputFocused)
-                            .frame(height: ComposerMetrics.inputHeight, alignment: .topLeading)
-                            // 回车发送、⌥回车换行。用 phases 变体读取 modifiers，
-                            // 普通 .onKeyPress(.return) 会同时吞掉 ⌥回车，无法区分。
-                            .onKeyPress(.return, phases: [.down, .repeat]) { press in
-                                if press.modifiers == [.option] {
-                                    input.append("\n")
-                                    return .handled
+                        ComposerTextView(
+                            text: $input,
+                            isFocused: Binding<Bool>(
+                                get: { inputFocused },
+                                set: { inputFocused = $0 }
+                            ),
+                            onReturn: {
+                                if let item = slashHighlighted {
+                                    acceptSlash(item)
+                                    return true
                                 }
-                                if press.modifiers.isEmpty {
-                                    if let item = slashHighlighted {
-                                        acceptSlash(item)
-                                    } else if canSend {
-                                        send(input)
-                                    }
-                                    return .handled
+                                if canSend {
+                                    send(input)
+                                    return true
                                 }
-                                return .ignored
+                                return true // 空输入时回车也不让系统响铃
+                            },
+                            onOptionReturn: { input.append("\n") },
+                            onUp: {
+                                guard showSlashPalette else { return false }
+                                slashSelection = (slashSelection - 1 + slashMatches.count) % slashMatches.count
+                                return true
+                            },
+                            onDown: {
+                                guard showSlashPalette else { return false }
+                                slashSelection = (slashSelection + 1) % slashMatches.count
+                                return true
+                            },
+                            onTab: {
+                                guard let item = slashHighlighted else { return false }
+                                input = item.token
+                                return true
+                            },
+                            onEscape: {
+                                guard showSlashPalette else { return false }
+                                slashDismissed = true
+                                return true
                             }
-                            .onKeyPress(.upArrow) {
-                                guard showSlashPalette else { return .ignored }
-                                slashSelection = max(0, slashSelection - 1); return .handled
-                            }
-                            .onKeyPress(.downArrow) {
-                                guard showSlashPalette else { return .ignored }
-                                slashSelection = min(slashMatches.count - 1, slashSelection + 1); return .handled
-                            }
-                            .onKeyPress(.tab) {
-                                guard let item = slashHighlighted else { return .ignored }
-                                input = item.token      // Tab 只补全不发送
-                                return .handled
-                            }
-                            .onKeyPress(.escape) {
-                                guard showSlashPalette else { return .ignored }
-                                slashDismissed = true; return .handled
-                            }
+                        )
+                        .frame(height: ComposerMetrics.inputHeight, alignment: .topLeading)
                     }
                     .overlay(alignment: .bottomTrailing) {
                         Text(counterText)
@@ -689,6 +686,143 @@ private struct SystemDivider: View {
     }
 }
 
+/// 自托管的多行输入框。
+///
+/// SwiftUI `TextEditor` 在 macOS 上有默认的 `textContainerInset`，导致光标和 overlay placeholder
+/// 对不齐。这里直接用 `NSTextView` 并清零内边距，同时自己处理回车/⌥回车/上下/Tab/Esc。
+private struct ComposerTextView: NSViewRepresentable {
+    @Binding var text: String
+    @Binding var isFocused: Bool
+
+    var onReturn: () -> Bool
+    var onOptionReturn: () -> Void
+    var onUp: () -> Bool
+    var onDown: () -> Bool
+    var onTab: () -> Bool
+    var onEscape: () -> Bool
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let scrollView = NSScrollView()
+        scrollView.drawsBackground = false
+        scrollView.borderType = .noBorder
+        scrollView.hasVerticalScroller = true
+        scrollView.hasHorizontalScroller = false
+        scrollView.autohidesScrollers = false
+        scrollView.focusRingType = .none
+
+        let textView = KeyHandlingTextView()
+        textView.isRichText = false
+        textView.isSelectable = true
+        textView.isEditable = true
+        textView.drawsBackground = false
+        textView.font = NSFont.systemFont(ofSize: 12.5)
+        textView.textColor = NSColor.labelColor
+        textView.textContainer?.widthTracksTextView = true
+        textView.textContainer?.containerSize = NSSize(width: 0, height: CGFloat.greatestFiniteMagnitude)
+        textView.isVerticallyResizable = true
+        textView.isHorizontallyResizable = false
+        textView.autoresizingMask = [.width]
+        textView.textContainerInset = NSSize.zero
+        textView.textContainer?.lineFragmentPadding = 0
+        textView.allowsUndo = true
+        textView.isAutomaticQuoteSubstitutionEnabled = false
+        textView.isAutomaticDashSubstitutionEnabled = false
+        textView.isAutomaticSpellingCorrectionEnabled = false
+        textView.delegate = context.coordinator
+        textView.onFocusChange = { focused in
+            DispatchQueue.main.async { self.isFocused = focused }
+        }
+        textView.onReturn = onReturn
+        textView.onOptionReturn = onOptionReturn
+        textView.onUp = onUp
+        textView.onDown = onDown
+        textView.onTab = onTab
+        textView.onEscape = onEscape
+
+        scrollView.documentView = textView
+        context.coordinator.textView = textView
+        return scrollView
+    }
+
+    func updateNSView(_ scrollView: NSScrollView, context: Context) {
+        guard let textView = scrollView.documentView as? KeyHandlingTextView else { return }
+        if textView.string != text {
+            textView.string = text
+        }
+        if isFocused, let window = textView.window, window.firstResponder != textView {
+            window.makeFirstResponder(textView)
+        } else if !isFocused, let window = textView.window, window.firstResponder == textView {
+            window.makeFirstResponder(nil)
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    final class Coordinator: NSObject, NSTextViewDelegate {
+        var parent: ComposerTextView
+        weak var textView: KeyHandlingTextView?
+
+        init(_ parent: ComposerTextView) {
+            self.parent = parent
+        }
+
+        func textDidChange(_ notification: Notification) {
+            guard let textView = notification.object as? KeyHandlingTextView else { return }
+            parent.text = textView.string
+        }
+    }
+}
+
+/// 负责拦截快捷键的 NSTextView 子类。
+private final class KeyHandlingTextView: NSTextView {
+    var onFocusChange: ((Bool) -> Void)?
+    var onReturn: (() -> Bool)?
+    var onOptionReturn: (() -> Void)?
+    var onUp: (() -> Bool)?
+    var onDown: (() -> Bool)?
+    var onTab: (() -> Bool)?
+    var onEscape: (() -> Bool)?
+
+    override func becomeFirstResponder() -> Bool {
+        let ok = super.becomeFirstResponder()
+        if ok { onFocusChange?(true) }
+        return ok
+    }
+
+    override func resignFirstResponder() -> Bool {
+        let ok = super.resignFirstResponder()
+        if ok { onFocusChange?(false) }
+        return ok
+    }
+
+    override func keyDown(with event: NSEvent) {
+        let keyCode = event.keyCode
+        let option = event.modifierFlags.contains(.option)
+
+        switch keyCode {
+        case 36: // Return
+            if option {
+                onOptionReturn?()
+                return
+            }
+            if onReturn?() == true { return }
+        case 126: // Up
+            if onUp?() == true { return }
+        case 125: // Down
+            if onDown?() == true { return }
+        case 48: // Tab
+            if onTab?() == true { return }
+        case 53: // Esc
+            if onEscape?() == true { return }
+        default:
+            break
+        }
+        super.keyDown(with: event)
+    }
+}
+
 /// 斜杠命令补全面板。
 ///
 /// **纯展示**：它只把候选摆出来，并把用户选中的 token 交回上层填进输入框。
@@ -715,7 +849,7 @@ private struct SlashPalette: View {
                     }
                 }
                 // 让行宽铺满面板，避免右侧留大片空白。
-                .frame(minWidth: 220, maxWidth: 280, alignment: .leading)
+                .frame(minWidth: 280, maxWidth: 380, alignment: .leading)
             }
             // 键盘上下键切换选中项时，自动滚动到可视区。
             .onChange(of: selection) { _, new in
@@ -725,8 +859,8 @@ private struct SlashPalette: View {
                 }
             }
         }
-        // 默认显示 3 个命令（超出需滚动），宽度随内容伸缩。
-        .frame(minWidth: 220, maxWidth: 280, maxHeight: 102)
+        // 默认显示 3 个命令（超出需滚动），宽度随内容伸缩，整体向右拉长。
+        .frame(minWidth: 280, maxWidth: 380, maxHeight: 102)
         .background(Theme.bgSurface, in: RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.divider, lineWidth: 1))
         .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
