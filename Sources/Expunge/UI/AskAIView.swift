@@ -124,15 +124,22 @@ struct AskAIView: View {
                 .help(L10n.t("点此去配置模型（需要 API Key）", "Tap to configure a model (API key required)"))
             } else {
                 Menu {
-                    Picker(selection: Binding<UUID?>(
-                        get: { state.activeConfig?.id },
-                        set: { state.modelStore.activeID = $0 }
-                    )) {
-                        ForEach(state.modelStore.selectable) { p in
-                            Text(ModelConfigStore.displayName(p)).tag(p.id as UUID?)
+                    ForEach(state.modelStore.selectable) { p in
+                        Button {
+                            state.modelStore.activeID = p.id
+                        } label: {
+                            HStack(spacing: 6) {
+                                Text(ModelConfigStore.displayName(p))
+                                    .lineLimit(1)
+                                Spacer(minLength: 0)
+                                if state.activeConfig?.id == p.id {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 10, weight: .semibold))
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
                         }
-                    } label: { EmptyView() }
-                    .pickerStyle(.inline)
+                    }
 
                     Divider()
 
@@ -705,8 +712,8 @@ private struct SlashPalette: View {
                 }
             }
         }
-        // 最多显示约 7 行，超出的可滚动；内容少时按内容高度收缩。
-        .frame(minWidth: 250, maxWidth: 250, maxHeight: 200)
+        // 默认显示约 3 个命令（超出需滚动），宽度随内容伸缩，row 内用 Spacer 铺满。
+        .frame(minWidth: 220, maxWidth: 280, maxHeight: 130)
         .background(Theme.bgSurface, in: RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.divider, lineWidth: 1))
         .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
@@ -725,6 +732,7 @@ private struct SlashPalette: View {
                     .font(.system(size: 10.5))
                     .foregroundStyle(.secondary)
             }
+            Spacer(minLength: 0)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
