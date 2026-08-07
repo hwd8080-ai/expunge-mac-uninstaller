@@ -150,26 +150,22 @@ struct ProcessesView: View {
         } else {
             VStack(spacing: 0) {
                 scrollableContent
+                Divider()
+                processList
                 bottomBar
             }
         }
     }
 
     private var scrollableContent: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                // 搜索栏
-                searchBar
+        VStack(spacing: 12) {
+            // 搜索栏
+            searchBar
 
-                // AI 判断栏（与残留/应用页同款）
-                aiBar
-
-                // 进程列表
-                processList
-                    .frame(minHeight: 200)
-            }
-            .padding(16)
+            // AI 判断栏（与残留/应用页同款）
+            aiBar
         }
+        .padding(16)
         .background(Theme.bgCanvas)
     }
 
@@ -202,6 +198,7 @@ struct ProcessesView: View {
             detail: L10n.t("勾选要判断的进程后点按钮，AI 会评估风险并替你勾掉不安全的。",
                            "Select processes, then tap the button — the AI judges the risk and unsafes are unchecked."),
             actionTitle: L10n.t("AI 判断后果", "AI consequence"),
+            disabled: state.selectedProcessCount == 0,
             onReview: {
                 guard state.modelStore.isConfigured else {
                     showSettings = true

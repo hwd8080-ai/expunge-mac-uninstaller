@@ -62,6 +62,8 @@ struct AIReviewBar: View {
     let onUndo: () -> Void
     /// 未配置模型时点这个去设置（needsConfig 阶段才用到）。
     var onConfigure: (() -> Void)? = nil
+    /// 主按钮置灰（如未勾选任何项）。仅 idle/failed 阶段生效。
+    var disabled: Bool = false
 
     private var isDone: Bool { phase == .done }
 
@@ -81,6 +83,8 @@ struct AIReviewBar: View {
                         .font(.system(size: 12, weight: .medium))
                 }
                 .buttonStyle(AIButtonStyle())
+                .disabled(disabled)
+                .opacity(disabled ? 0.5 : 1.0)
             case .running:
                 EmptyView()
             case .done:
@@ -100,6 +104,8 @@ struct AIReviewBar: View {
                         .font(.system(size: 12, weight: .medium))
                 }
                 .buttonStyle(AIButtonStyle())
+                .disabled(disabled)
+                .opacity(disabled ? 0.5 : 1.0)
             }
         }
         .padding(.horizontal, 12)
