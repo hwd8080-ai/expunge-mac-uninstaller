@@ -14,9 +14,14 @@ struct ProcessesView: View {
     @State private var showSettings = false
     @State private var searchText = ""
 
+    private var aiPhase: AIReviewBar.Phase {
+        if !state.hasScannedProcesses || state.processes.isEmpty { return .idle }
+        return .idle
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            toolbar
+            header
             Divider()
             content
         }
@@ -54,105 +59,35 @@ struct ProcessesView: View {
         }
     }
 
-    private var toolbar: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(L10n.t("进程", "Processes"))
-                    .font(.headline)
-                Text(L10n.t("找出后台运行、占用内存的进程", "Find background processes hogging memory"))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
+    // MARK: - 头部
 
-            if !state.processes.isEmpty {
-                Text(L10n.t("占用 \(SizeFormat.human(state.processes.reduce(0) { $0 + $1.memoryBytes }))",
-                            "\(SizeFormat.human(state.processes.reduce(0) { $0 + $1.memoryBytes })) used"))
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-            }
-
+    private var header: some View {
+        PageHeader(title: L10n.t("进程", "Processes"), subtitle: subtitleText) {
             Button {
                 Task { await state.scanProcesses() }
             } label: {
-                Label(state.hasScannedProcesses ? L10n.t("刷新", "Refresh") : L10n.t("开始扫描", "Start scan"),
+                Label(state.hasScannedProcesses
+                      ? L10n.t("重新扫描", "Rescan")
+                      : L10n.t("开始扫描", "Scan"),
                       systemImage: "arrow.clockwise")
             }
-            .disabled(state.isScanningProcesses)
             .controlSize(.small)
-
-            if state.hasScannedProcesses && !state.processes.isEmpty {
-                Divider().frame(height: 14)
-                SelectionToolbar(
-                    selectedCount: state.selectedProcessCount,
-                    totalCount: filteredProcesses.filter(\.isKillable).count,
-                    onSelectAll: { state.setAllVisibleSelected(true) },
-                    onDeselectAll: { state.setAllVisibleSelected(false) }
-                )
-                Button {
-                    showKillConfirm = true
-                } label: {
-                    Label(L10n.t("结束所选 (\(state.selectedProcessCount))",
-                                  "End selected (\(state.selectedProcessCount))"),
-                          systemImage: "xmark.circle.fill")
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-                .disabled(state.selectedProcessCount == 0)
-                .help(state.selectedProcessCount == 0
-                      ? L10n.t("先勾选要结束的进程", "Select processes first")
-                      : L10n.t("结束选中的进程（二次确认）", "End the selected processes (with confirmation)"))
-
-                Button {
-                    if !state.modelStore.isConfigured {
-                        showSettings = true
-                        return
-                    }
-                    juryRunning = true
-                    Task {
-                        let ok = await state.aiJudgeProcesses(state.selectedProcesses)
-                        await MainActor.run { juryRunning = false; _ = ok }
-                    }
-                } label: {
-                    Label(juryRunning ? L10n.t("AI 判断中…", "AI judging…")
-                                       : L10n.t("AI 判断后果", "AI consequence"),
-                          systemImage: "sparkles")
-                }
-                .buttonStyle(AIButtonStyle())
-                .controlSize(.small)
-                .disabled(state.selectedProcessCount == 0 || juryRunning)
-                .help(state.modelStore.isConfigured
-                      ? L10n.t("让 AI 判断结束这些进程的后果", "Ask AI to judge the consequence of ending these")
-                      : L10n.t("需先在 ⚙ 配置模型", "Configure a model in ⚙ first"))
-            }
+            .disabled(state.isScanningProcesses)
         }
-        // 搜索栏：按进程名或端口号过滤
-        if state.hasScannedProcesses && !state.processes.isEmpty {
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(.secondary)
-                    .font(.caption)
-                TextField(L10n.t("搜索进程名或端口号…", "Search by process name or port…"),
-                          text: $searchText)
-                    .textFieldStyle(.plain)
-                    .font(.callout)
-                if !searchText.isEmpty {
-                    Button { searchText = "" } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.horizontal, 10).padding(.vertical, 6)
-            .background(Theme.bgCanvas, in: RoundedRectangle(cornerRadius: 6))
-            .padding(.horizontal, 12)
-            .padding(.bottom, 6)
-        }
-        }
-        .padding(12)
     }
+
+    private var subtitleText: String {
+        guard state.hasScannedProcesses, !state.processes.isEmpty else {
+            return L10n.t("后台服务类进程，含监听端口",
+                          "Background service processes, with listening ports")
+        }
+        let mem = SizeFormat.human(state.processes.reduce(0) { $0 + $1.memoryBytes })
+        let count = state.processes.count
+        return L10n.t("\(count) 个后台进程 · 占用 \(mem)",
+                      "\(count) background processes · \(mem) used")
+    }
+
+    // MARK: - 主体
 
     @ViewBuilder
     private var content: some View {
@@ -187,7 +122,7 @@ struct ProcessesView: View {
                 .buttonStyle(.borderedProminent)
 
                 Text(L10n.t("系统关键进程与 Expunge 自身受保护、无法结束，默认不勾选，结束前需二次确认。",
-                            "System-critical processes and Expunge itself are protected and can’t be ended; nothing is checked by default, and ending needs a confirmation."))
+                            "System-critical processes and Expunge itself are protected and can't be ended; nothing is checked by default, and ending needs a confirmation."))
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .multilineTextAlignment(.center)
@@ -213,9 +148,105 @@ struct ProcessesView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
-            processList
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            VStack(spacing: 0) {
+                scrollableContent
+                bottomBar
+            }
         }
+    }
+
+    private var scrollableContent: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                // 搜索栏
+                searchBar
+
+                // AI 判断栏（与残留/应用页同款）
+                aiBar
+
+                // 进程列表
+                processList
+                    .frame(minHeight: 200)
+            }
+            .padding(16)
+        }
+        .background(Theme.bgCanvas)
+    }
+
+    private var searchBar: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+                .font(.caption)
+            TextField(L10n.t("搜索进程名或端口号…", "Search by process name or port…"),
+                      text: $searchText)
+                .textFieldStyle(.plain)
+                .font(.callout)
+            if !searchText.isEmpty {
+                Button { searchText = "" } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 10).padding(.vertical, 6)
+        .background(Theme.bgSurface, in: RoundedRectangle(cornerRadius: 6))
+        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.divider, lineWidth: 1))
+    }
+
+    private var aiBar: some View {
+        AIReviewBar(
+            phase: aiPhase,
+            title: L10n.t("不确定结束这些进程会怎样？", "Not sure what ending these processes would do?"),
+            detail: L10n.t("勾选要判断的进程后点按钮，AI 会评估风险并替你勾掉不安全的。",
+                           "Select processes, then tap the button — the AI judges the risk and unsafes are unchecked."),
+            actionTitle: L10n.t("AI 判断后果", "AI consequence"),
+            onReview: {
+                guard state.modelStore.isConfigured else {
+                    showSettings = true
+                    return
+                }
+                juryRunning = true
+                Task {
+                    let ok = await state.aiJudgeProcesses(state.selectedProcesses)
+                    await MainActor.run { juryRunning = false; _ = ok }
+                }
+            },
+            onUndo: {
+                state.clearProcessVerdicts()
+            },
+            onConfigure: { showSettings = true }
+        )
+    }
+
+    private var bottomBar: some View {
+        HStack(spacing: 8) {
+            SelectionToolbar(
+                selectedCount: state.selectedProcessCount,
+                totalCount: filteredProcesses.filter(\.isKillable).count,
+                onSelectAll: { state.setAllVisibleSelected(true) },
+                onDeselectAll: { state.setAllVisibleSelected(false) }
+            )
+            Spacer()
+            Button {
+                showKillConfirm = true
+            } label: {
+                Label(L10n.t("结束所选 (\(state.selectedProcessCount))",
+                              "End selected (\(state.selectedProcessCount))"),
+                      systemImage: "xmark.circle.fill")
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+            .disabled(state.selectedProcessCount == 0)
+            .help(state.selectedProcessCount == 0
+                  ? L10n.t("先勾选要结束的进程", "Select processes first")
+                  : L10n.t("结束选中的进程（二次确认）", "End the selected processes (with confirmation)"))
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(Theme.bgSurface)
+        .overlay(alignment: .top) { Divider() }
     }
 
     /// 搜索过滤：按进程名、命令行参数或端口号匹配。
