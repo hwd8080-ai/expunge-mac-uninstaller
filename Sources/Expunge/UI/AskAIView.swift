@@ -27,7 +27,11 @@ struct AskAIView: View {
     // 对话状态（messages / isThinking）住在 AppState 里，不在这里。
     // 这个 View 会随着切 tab 被销毁重建，@State 活不过一次往返。
     @State private var input = ""
-    @FocusState private var inputFocused: Bool
+    // 注意：这里用普通 @State 而非 @FocusState。本输入框是自定义 NSViewRepresentable，
+    // 焦点完全由 ComposerTextView 的 makeFirstResponder 分支手动管理；若用 @FocusState
+    // 而没有配套 .focused() modifier，SwiftUI 的 focus 协调器会在每次输入重绘时插手、
+    // 收回 NSTextView 的 firstResponder，表现为「输入一个字光标就消失」。
+    @State private var inputFocused = false
     @State private var showSettings = false
     @State private var showSkills = false
     @State private var showMemory = false
@@ -780,6 +784,8 @@ private struct ComposerTextView: NSViewRepresentable {
 
         func textDidChange(_ notification: Notification) {
             guard let textView = notification.object as? KeyHandlingTextView else { return }
+            // 直接同步写回即可：焦点抖动的根因是 @FocusState（已改为 @State），
+            // 不是这里的同步写回。延迟写回反而会引入快速输入丢字的竞态。
             parent.text = textView.string
         }
     }
@@ -870,34 +876,31 @@ private struct SlashPalette: View {
         }
         // 面板整体：大圆角 + 极淡描边 + 柔和投影，去掉生硬的方框边；
         // 宽度跟随容器，调用方已把它对齐到输入框（留出右侧发送按钮的位置）。
-        .frame(maxWidth: .infinity, maxHeight: 220)
+        // 高度限制为约三行命令，超出则滚动。
+        .frame(maxWidth: .infinity, maxHeight: 104)
         .background(Theme.bgSurface, in: RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.divider.opacity(0.7), lineWidth: 0.5))
         .shadow(color: .black.opacity(0.10), radius: 18, y: 6)
     }
 
-    /// 双行命令项：图标 + token（上）/ 描述（下），右侧不再留白。
+    /// 单行命令项：图标 + token + 紧跟其后的描述，描述过长尾部省略。
     private func row(_ item: SlashCommandItem, active: Bool) -> some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(spacing: 6) {
             Image(systemName: item.icon)
-                .font(.system(size: 13))
+                .font(.system(size: 12))
                 .foregroundStyle(Theme.accent)
-                .frame(width: 18, alignment: .center)
-                .padding(.top, 1)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(item.token)
-                    .font(.system(size: 12.5, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(Theme.accent)
-                Text(item.detail)
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer(minLength: 0)
+                .frame(width: 16)
+            Text(item.token)
+                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                .foregroundStyle(Theme.accent)
+            Text(item.detail)
+                .font(.system(size: 10.5))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 7)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(active ? Theme.accentSubtle : Color.clear)
     }
