@@ -190,7 +190,7 @@ struct FeedbackSheet: View {
     @State private var includeDiagnostics = true
     @State private var showPreview = false
 
-    private static let repoIssueURL = "https://github.com/hwd8080-ai/expunge-mac-uninstaller/issues/new"
+    private static let repoIssueURL = "https://github.com/hwd8080-ai/ai-mac-cleaner/issues/new"
     private static let feedbackMail = "expunge@duck.com"
 
     init(target: Artifact? = nil, editingEntry: FeedbackEntry? = nil) {

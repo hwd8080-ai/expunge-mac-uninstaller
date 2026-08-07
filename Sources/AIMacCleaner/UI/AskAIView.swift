@@ -433,9 +433,11 @@ struct AskAIView: View {
                             .font(.system(size: 12.5))
                             .foregroundStyle(.tertiary)
                             .lineSpacing(2)
-                            // 与 NSTextView 的内边距对齐，避免光标和暗文不在同一高度。
+                            // 与 NSTextView 的内边距对齐：ComposerTextView 已把
+                            // textContainerInset 和 lineFragmentPadding 都置零，placeholder
+                            // 只保留水平内边距即可与输入文本第一行基线对齐；vertical padding
+                            // 会把它额外下推，导致光标看起来偏高。
                             .padding(.horizontal, 10)
-                            .padding(.vertical, 8)
                             .allowsHitTesting(false)
                     }
 

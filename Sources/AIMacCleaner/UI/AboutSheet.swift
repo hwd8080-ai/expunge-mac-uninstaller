@@ -6,7 +6,7 @@ struct AboutSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
 
-    private let repoURL = URL(string: "https://github.com/hwd8080-ai/expunge-mac-uninstaller")!
+    private let repoURL = URL(string: "https://github.com/hwd8080-ai/ai-mac-cleaner")!
 
     var body: some View {
         VStack(spacing: 0) {
