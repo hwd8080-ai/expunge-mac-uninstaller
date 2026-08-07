@@ -1,5 +1,6 @@
 import SwiftUI
 import Foundation
+import AppKit
 
 /// 「问 AI」tab：用自然语言指挥本地 Agent 调用 Expunge 的 skill 完成清理。
 ///
@@ -106,6 +107,18 @@ struct AskAIView: View {
         } message: {
             Text(L10n.t("当前对话历史将被清空。长期记忆（/remember 记的内容）不受影响。",
                         "The current chat history will be cleared. Long-term memories (saved via /remember) are untouched."))
+        }
+        // 上下键在 SwiftUI 集成下的 NSTextView 里接收不可靠，改由全局 NSEvent monitor 拦截：
+        // 面板显示时吞掉上下键并移动选中项；面板隐藏时放行，光标才可正常移动。
+        .onAppear { SlashKeyInterceptor.shared.setActive(showSlashPalette) }
+        .onDisappear { SlashKeyInterceptor.shared.setActive(false) }
+        .onChange(of: showSlashPalette) { _, on in
+            SlashKeyInterceptor.shared.setActive(on)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .slashPaletteMove)) { note in
+            guard showSlashPalette, !slashMatches.isEmpty else { return }
+            let dir = (note.object as? Int) ?? 0
+            slashSelection = (slashSelection + dir + slashMatches.count) % slashMatches.count
         }
     }
 
@@ -426,9 +439,6 @@ struct AskAIView: View {
                             get: { inputFocused },
                             set: { inputFocused = $0 }
                         ),
-                        slashSelection: $slashSelection,
-                        slashMatches: slashMatches,
-                        slashDismissed: $slashDismissed,
                         onReturn: {
                             if let item = slashHighlighted {
                                 acceptSlash(item)
@@ -686,12 +696,6 @@ private struct ComposerTextView: NSViewRepresentable {
     @Binding var text: String
     @Binding var isFocused: Bool
 
-    // 斜杠面板的状态直接通过 Binding 传进来，避免 closure 在 updateNSView 中
-    // 同步不及时导致上下键无法移动选择。
-    @Binding var slashSelection: Int
-    var slashMatches: [SlashCommandItem]
-    @Binding var slashDismissed: Bool
-
     var onReturn: () -> Bool
     var onOptionReturn: () -> Void
     var onTab: () -> Bool
@@ -733,10 +737,6 @@ private struct ComposerTextView: NSViewRepresentable {
         textView.onTab = onTab
         textView.onEscape = onEscape
 
-        textView.slashSelection = _slashSelection
-        textView.slashMatches = slashMatches
-        textView.slashDismissed = _slashDismissed
-
         scrollView.documentView = textView
         context.coordinator.textView = textView
         return scrollView
@@ -757,10 +757,6 @@ private struct ComposerTextView: NSViewRepresentable {
         }
 
         // 斜杠面板状态通过 Binding 同步，确保上下键读取到的永远是最新值。
-        textView.slashSelection = _slashSelection
-        textView.slashMatches = slashMatches
-        textView.slashDismissed = _slashDismissed
-
         if isFocused, let window = textView.window, window.firstResponder != textView {
             window.makeFirstResponder(textView)
         } else if !isFocused, let window = textView.window, window.firstResponder == textView {
@@ -788,23 +784,16 @@ private struct ComposerTextView: NSViewRepresentable {
 }
 
 /// 负责拦截快捷键的 NSTextView 子类。
+///
+/// 注意：上下箭头（选中斜杠命令）不在这里处理 —— 在 SwiftUI 的 NSViewRepresentable
+/// 集成下，NSTextView 收到的 keyDown 对方向键不可靠（事件常被先一步派发）。
+/// 上下键改由 AskAIView 顶层的 `NSEvent` 本地 monitor 统一拦截，见 `SlashKeyInterceptor`。
 private final class KeyHandlingTextView: NSTextView {
     var onFocusChange: ((Bool) -> Void)?
     var onReturn: (() -> Bool)?
     var onOptionReturn: (() -> Void)?
     var onTab: (() -> Bool)?
     var onEscape: (() -> Bool)?
-
-    // 斜杠面板状态直接通过 SwiftUI Binding 修改，避免 closure 不同步。
-    var slashSelection: Binding<Int>?
-    var slashMatches: [SlashCommandItem] = []
-    var slashDismissed: Binding<Bool>?
-
-    private var isSlashPaletteVisible: Bool {
-        guard !slashMatches.isEmpty else { return false }
-        guard slashDismissed?.wrappedValue == false else { return false }
-        return string.hasPrefix("/")
-    }
 
     override func becomeFirstResponder() -> Bool {
         let ok = super.becomeFirstResponder()
@@ -829,16 +818,6 @@ private final class KeyHandlingTextView: NSTextView {
                 return
             }
             if onReturn?() == true { return }
-        case 126: // Up
-            if isSlashPaletteVisible, let selection = slashSelection {
-                selection.wrappedValue = (selection.wrappedValue - 1 + slashMatches.count) % slashMatches.count
-                return
-            }
-        case 125: // Down
-            if isSlashPaletteVisible, let selection = slashSelection {
-                selection.wrappedValue = (selection.wrappedValue + 1) % slashMatches.count
-                return
-            }
         case 48: // Tab
             if onTab?() == true { return }
         case 53: // Esc
@@ -1148,4 +1127,48 @@ private struct SkillCatalogSheet: View {
             .overlay(Capsule().stroke(border, lineWidth: 1))
             .foregroundStyle(fg)
     }
+}
+
+/// 斜杠命令面板的上下键拦截器。
+///
+/// 为什么不用 NSTextView 的 `keyDown`：
+/// 在 SwiftUI 的 `NSViewRepresentable` 集成里，方向键事件常常在到达我们的 textView
+/// 之前就被系统先一步派发，导致「上下键一个都不动」。这里改成在 App 级（`NSEvent`
+/// 本地 monitor）拦截 —— 它在事件派发给 window 之前就拿到，且不受 first responder
+/// 是谁的影响。面板显示时吞掉上下键并广播方向，面板隐藏时放行，光标才能正常移动。
+private final class SlashKeyInterceptor {
+    static let shared = SlashKeyInterceptor()
+    private var monitor: Any?
+    private var active = false
+
+    /// 面板出现/消失时切换。重复调用为 true 不会重复注册 monitor。
+    func setActive(_ on: Bool) {
+        active = on
+        if on { install() }
+    }
+
+    private func install() {
+        guard monitor == nil else { return }
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self, self.active else { return event }
+            switch event.keyCode {
+            case 126: // 上箭头
+                NotificationCenter.default.post(name: .slashPaletteMove, object: -1)
+                return nil
+            case 125: // 下箭头
+                NotificationCenter.default.post(name: .slashPaletteMove, object: 1)
+                return nil
+            default:
+                return event
+            }
+        }
+    }
+
+    deinit {
+        if let monitor { NSEvent.removeMonitor(monitor) }
+    }
+}
+
+private extension Notification.Name {
+    static let slashPaletteMove = Notification.Name("expunge.slashPaletteMove")
 }
