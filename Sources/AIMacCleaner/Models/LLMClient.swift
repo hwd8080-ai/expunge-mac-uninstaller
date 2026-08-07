@@ -99,8 +99,9 @@ struct LLMClient {
     private static func completeAnthropic(config: AIModelConfig,
                                            messages: [(role: String, content: String)],
                                            system: String) async throws -> String {
-        // SwiftAnthropic 在 basePath 后自己补 `/v1/messages`，所以这里只传 host（去掉 path）。
-        let basePath = stripPath(config.effectiveBaseURL)
+        // SwiftAnthropic 会把传入的 base URL 的 path 保留，然后自己补 `/v1/messages`。
+        // 例如 `https://ark.cn-beijing.volces.com/api/coding` → `/api/coding/v1/messages`。
+        let basePath = anthropicBaseURL(config.effectiveBaseURL)
         let service = AnthropicServiceFactory.service(
             apiKey: config.apiKey,
             apiVersion: "2023-06-01",
@@ -143,14 +144,20 @@ struct LLMClient {
         return (scheme, host, u.path)
     }
 
-    /// 只保留 `scheme://host`，去掉 path —— SwiftAnthropic 自己补 `/v1/messages`。
-    private static func stripPath(_ base: String) -> String {
+    /// SwiftAnthropic 会把传入的 base URL 的 path 保留，然后自己补 `/v1/messages`。
+    /// 例如：
+    ///   - `https://api.anthropic.com` → `/v1/messages`
+    ///   - `https://ark.cn-beijing.volces.com/api/coding` → `/api/coding/v1/messages`
+    /// 因此不能 strip 掉 path，否则兼容端点（火山方舟 Coding Plan 等）会 404。
+    private static func anthropicBaseURL(_ base: String) -> String {
         guard let u = URL(string: base), let scheme = u.scheme, let host = u.host else {
             return "https://api.anthropic.com"
         }
         var c = URLComponents()
         c.scheme = scheme
         c.host = host
+        c.port = u.port
+        c.path = u.path
         return c.string ?? "https://api.anthropic.com"
     }
 }
