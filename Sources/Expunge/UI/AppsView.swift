@@ -13,8 +13,6 @@ struct AppsView: View {
     @State private var showFeedback = false
     @State private var executorOutput: [String] = []
     @State private var showSelfUninstalled = false
-    /// 默认按类别全部折叠，让用户按关心的分组逐一点开。
-    @State private var collapsed: Set<ArtifactCategory> = Set(ArtifactCategory.allCases)
     @State private var aiPhase: AIReviewBar.Phase = .idle
     @State private var showSettings = false
 
@@ -44,7 +42,7 @@ struct AppsView: View {
         .task { await state.loadAppList() }
         // AI 复核结束后展开全部分组，方便用户查看每一类 AI 写下的评语。
         .onChange(of: aiPhase) { _, phase in
-            if phase == .done { collapsed = [] }
+            if phase == .done { state.appsCollapsed = [] }
         }
         // 换了扫描目标就把上一轮 AI 结论清掉，否则会显示上一个 app 的判断。
         .onChange(of: state.matchedApp?.bundlePath) { _, _ in aiPhase = .idle }
@@ -382,9 +380,9 @@ struct AppsView: View {
                         badge: nil,
                         artifacts: items,
                         expanded: Binding(
-                            get: { !collapsed.contains(category) },
+                            get: { !state.appsCollapsed.contains(category) },
                             set: { open in
-                                if open { collapsed.remove(category) } else { collapsed.insert(category) }
+                                if open { state.appsCollapsed.remove(category) } else { state.appsCollapsed.insert(category) }
                             }
                         ),
                         onToggleGroup: { on in

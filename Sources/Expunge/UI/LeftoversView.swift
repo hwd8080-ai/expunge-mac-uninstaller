@@ -14,7 +14,6 @@ struct LeftoversView: View {
     @State private var showResult = false
     @State private var showFeedback = false
     @State private var executorOutput: [String] = []
-    @State private var collapsed: Set<UUID> = []
     @State private var aiPhase: AIReviewBar.Phase = .idle
     @State private var showSettings = false
 
@@ -136,7 +135,7 @@ struct LeftoversView: View {
                     .padding(16)
                 }
                 .onChange(of: aiPhase) { _, phase in
-                    if phase == .done { collapsed = [] }
+                    if phase == .done { state.leftoverCollapsed = [] }
                 }
                 .background(Theme.bgCanvas)
                 bottomBar
@@ -236,9 +235,9 @@ struct LeftoversView: View {
                             badge: .source(group.source),
                             artifacts: group.artifacts,
                             expanded: Binding(
-                                get: { !collapsed.contains(group.id) },
+                                get: { !state.leftoverCollapsed.contains(group.id) },
                                 set: { open in
-                                    if open { collapsed.remove(group.id) } else { collapsed.insert(group.id) }
+                                    if open { state.leftoverCollapsed.remove(group.id) } else { state.leftoverCollapsed.insert(group.id) }
                                 }
                             ),
                             onToggleGroup: { on in
@@ -308,12 +307,6 @@ struct LeftoversView: View {
     private func rescan() async {
         await state.scanLeftovers()
         aiPhase = .idle
-        collapsed = defaultCollapsed()
-    }
-
-    /// 默认全部折叠，让用户按关心的分组逐一点开。
-    private func defaultCollapsed() -> Set<UUID> {
-        Set(state.leftoverGroups.map(\.id))
     }
 
     private func runRemoval(userData: UserDataDisposition) {

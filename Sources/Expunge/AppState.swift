@@ -4,6 +4,9 @@ import Combine
 @MainActor
 final class AppState: ObservableObject {
     @Published var searchText: String = ""
+    /// 应用页按类别的折叠状态（默认全部折叠）。提升到 AppState 以免切 tab 后
+    /// 视图重建丢状态（尤其是 AI 复核后展开的状态）。
+    @Published var appsCollapsed: Set<ArtifactCategory> = Set(ArtifactCategory.allCases)
     @Published private(set) var plan: RemovalPlan?
     @Published private(set) var isScanning: Bool = false
     @Published var artifacts: [Artifact] = []  // 可勾选编辑
@@ -26,6 +29,9 @@ final class AppState: ObservableObject {
     /// 是否已经扫过一次（区分「没扫」和「扫了但没有」）
     @Published private(set) var hasScannedLeftovers = false
     @Published var leftoverFilter: LeftoverFilter = .orphan
+    /// 残留分组的折叠状态（按 group id）。提升到 AppState：切 tab 后视图被重建，
+    /// 若用页面内 @State 会在初始化时重置为全展开，丢失「默认折叠」设定。
+    @Published var leftoverCollapsed: Set<UUID> = []
 
     // ── 进程管理 ──
     @Published var processes: [LiveProcess] = []
@@ -360,6 +366,9 @@ final class AppState: ObservableObject {
             return await orphanGroups + aiGroups
         }.value
         leftoverGroups = groups
+        // 每次扫描完默认全部折叠：group id 是本次新生成的，按默认折叠让用户逐一点开。
+        // 折叠状态提升到 AppState（见 leftoverCollapsed），切 tab 后视图重建也不会重置。
+        leftoverCollapsed = Set(groups.map(\.id))
     }
 
     /// 当前筛选档下可见的残留分组。
