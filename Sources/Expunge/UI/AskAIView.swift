@@ -409,7 +409,6 @@ struct AskAIView: View {
                              selection: slashSelection,
                              onHover: { slashSelection = $0 },
                              onPick:  { acceptSlash($0) })
-                    .frame(height: 102)
                     .padding(.horizontal, 10)
                     .padding(.top, 6)
                     .padding(.bottom, 4)
@@ -841,20 +840,43 @@ private struct SlashPalette: View {
     let onHover: (Int) -> Void
     let onPick: (SlashCommandItem) -> Void
 
+    /// 按分组聚合，分组顺序遵循 `SlashSection.allCases`，组内沿用 `palette` 既定顺序。
+    private var groups: [(section: SlashSection, items: [SlashCommandItem])] {
+        SlashSection.allCases.compactMap { sec in
+            let its = items.filter { $0.section == sec }
+            return its.isEmpty ? nil : (sec, its)
+        }
+    }
+
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    ForEach(Array(items.enumerated()), id: \.element.id) { idx, item in
-                        row(item, active: idx == selection)
-                            .id(item.id)
-                            .contentShape(Rectangle())
-                            .onHover { if $0 { onHover(idx) } }
-                            .onTapGesture { onPick(item) }
-                        if idx < items.count - 1 { Divider().opacity(0.6) }
+                    ForEach(Array(groups.enumerated()), id: \.element.section.rawValue) { gIdx, group in
+                        // 分组标题小字
+                        Text(group.section.title)
+                            .font(.system(size: 10, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.tertiary)
+                            .padding(.horizontal, 14)
+                            .padding(.top, gIdx == 0 ? 10 : 12)
+                            .padding(.bottom, 5)
+
+                        ForEach(Array(group.items.enumerated()), id: \.element.id) { _, item in
+                            let flat = items.firstIndex(where: { $0.id == item.id }) ?? 0
+                            row(item, active: flat == selection)
+                                .id(item.id)
+                                .contentShape(Rectangle())
+                                .onHover { if $0 { onHover(flat) } }
+                                .onTapGesture { onPick(item) }
+                        }
+
+                        if gIdx < groups.count - 1 {
+                            Divider().opacity(0.5)
+                                .padding(.vertical, 8)
+                                .padding(.horizontal, 14)
+                        }
                     }
                 }
-                // 让行宽铺满面板，避免右侧留大片空白。
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             // 键盘上下键切换选中项时，自动滚动到可视区。
@@ -865,29 +887,35 @@ private struct SlashPalette: View {
                 }
             }
         }
-        // 默认显示 3 个命令（超出需滚动），宽度由调用方通过 .frame(width:) 决定。
-        .frame(maxWidth: .infinity, maxHeight: 102)
-        .background(Theme.bgSurface, in: RoundedRectangle(cornerRadius: 10))
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.divider, lineWidth: 1))
-        .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
+        // 面板整体：大圆角 + 极淡描边 + 柔和投影，去掉生硬的方框边。
+        .frame(maxWidth: .infinity, maxHeight: 220)
+        .background(Theme.bgSurface, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.divider.opacity(0.7), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.10), radius: 18, y: 6)
     }
 
+    /// 双行命令项：图标 + token（上）/ 描述（下），右侧不再留白。
     private func row(_ item: SlashCommandItem, active: Bool) -> some View {
-        HStack(spacing: 8) {
+        HStack(alignment: .top, spacing: 10) {
             Image(systemName: item.icon)
-                .font(.system(size: 12))
+                .font(.system(size: 13))
                 .foregroundStyle(Theme.accent)
-                .frame(width: 16)
-            Text(item.token)
-                .font(.system(size: 12, weight: .semibold, design: .monospaced))
-            Spacer(minLength: 8)
-            Text(item.detail)
-                .font(.system(size: 10.5))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+                .frame(width: 18, alignment: .center)
+                .padding(.top, 1)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.token)
+                    .font(.system(size: 12.5, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(Theme.accent)
+                Text(item.detail)
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 7)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(active ? Theme.accentSubtle : Color.clear)
     }

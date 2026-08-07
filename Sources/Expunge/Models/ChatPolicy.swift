@@ -62,10 +62,24 @@ struct SlashCommandItem: Identifiable, Equatable {
     let icon: String    // SF Symbol
     let zh: String
     let en: String
+    let section: SlashSection
     var id: String { token }
     /// 计算属性，不是存储属性 —— L10n 必须在渲染时现取，
     /// 固化进 `static let` 会让切换语言后描述不刷新。
     var detail: String { L10n.t(zh, en) }
+}
+
+/// 斜杠命令分组。仅影响补全面板的展示顺序与标题，不参与执行判定。
+enum SlashSection: String, CaseIterable {
+    case session
+    case memory
+
+    var title: String {
+        switch self {
+        case .session: return L10n.t("会话", "SESSION")
+        case .memory:  return L10n.t("记忆", "MEMORY")
+        }
+    }
 }
 
 extension ChatCommand {
@@ -75,14 +89,18 @@ extension ChatCommand {
     /// 面板永远不能提供一条白名单不认的命令。
     static let palette: [SlashCommandItem] = [
         SlashCommandItem(token: "/clear", icon: "eraser",
-                         zh: "清空当前会话", en: "Clear this conversation"),
+                         zh: "清空当前会话", en: "Clear this conversation",
+                         section: .session),
         SlashCommandItem(token: "/reset", icon: "arrow.counterclockwise",
-                         zh: "重置上下文，屏幕记录保留", en: "Reset context — messages stay on screen"),
+                         zh: "重置上下文，屏幕记录保留", en: "Reset context — messages stay on screen",
+                         section: .session),
         SlashCommandItem(token: "/new", icon: "square.and.pencil",
-                         zh: "开始新会话（与 /clear 等效）", en: "Start a new chat (same as /clear)"),
+                         zh: "开始新会话（与 /clear 等效）", en: "Start a new chat (same as /clear)",
+                         section: .session),
         SlashCommandItem(token: "/remember", icon: "pin",
                          zh: "记住一件事，清空会话也不丢",
-                         en: "Remember something — survives clearing the chat")
+                         en: "Remember something — survives clearing the chat",
+                         section: .memory)
     ]
 
     /// 当前输入应该展示哪些候选。返回空数组 = 不弹面板。
