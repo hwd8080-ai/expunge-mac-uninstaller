@@ -34,8 +34,7 @@ Describe what you want in natural language — "uninstall Cursor completely" or 
 #### Configure a Model
 Open ⚙ **Settings → Configure AI model** and add an API key. OpenAI, Anthropic, and any compatible provider work. Multiple profiles are supported — switch between them in the Ask AI toolbar.
 
-<!-- TODO: 插入模型配置截图 -->
-<!-- ![Model configuration](screenshots/model-config.png) -->
+![Model configuration](screenshots/model-config.png)
 
 #### Slash Commands
 Type `/` in the input box to see available commands:
@@ -46,20 +45,17 @@ Type `/` in the input box to see available commands:
 | `/reset` | Restart the agent context |
 | `/remember` | Save a correction so it survives `/new` and session restarts |
 
-<!-- TODO: 插入斜杠命令截图 -->
-<!-- ![Slash commands](screenshots/slash-commands.png) -->
+![Slash commands](screenshots/slash-commands.png)
 
 #### AI Consequence (Processes)
 Select one or more processes, tap **AI consequence** — the agent judges what ending each process would do. Low-risk ones get auto-selected; the rest get unchecked with a reason underneath.
 
-<!-- TODO: 插入 AI 判断后果截图 -->
-<!-- ![AI consequence](screenshots/ai-consequence.png) -->
+![AI consequence](screenshots/ai-consequence.png)
 
 #### AI Review (Apps & Leftovers)
 Tap **Ask AI** in the Apps or Leftovers tab. The agent inspects your uninstall list and automatically unchecks anything it thinks should be kept (login state, shared data, credentials) — with a reason under each row.
 
-<!-- TODO: 插入 AI 复核截图 -->
-<!-- ![AI review](screenshots/ai-review.png) -->
+![AI review](screenshots/ai-review.png)
 
 ### 🖥️ Process Manager
 See every background process running on your Mac — node servers, Python scripts, Docker containers, Brew services. Shows memory usage, CPU %, and **listening ports** (e.g. `:3000`, `:8080`). Search by port number to find exactly which process is holding it. Kill with one click.
