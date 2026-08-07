@@ -124,12 +124,10 @@ struct AskAIView: View {
                 .help(L10n.t("点此去配置模型（需要 API Key）", "Tap to configure a model (API key required)"))
             } else {
                 Menu {
-                    Picker(selection: Binding(
-                        get: { state.modelStore.activeID },
+                    Picker(selection: Binding<UUID?>(
+                        get: { state.activeConfig?.id },
                         set: { state.modelStore.activeID = $0 }
                     )) {
-                        Text(L10n.t("默认模型", "Default model")).tag(Optional<UUID>.none)
-                        Divider()
                         ForEach(state.modelStore.selectable) { p in
                             Text(ModelConfigStore.displayName(p)).tag(p.id as UUID?)
                         }
@@ -146,29 +144,26 @@ struct AskAIView: View {
                 } label: {
                     HStack(spacing: 4) {
                         Text(currentModelLabel)
-                            .font(.system(size: 10))
+                            .font(.system(size: 11, weight: .semibold))
                         Image(systemName: "chevron.down")
-                            .font(.system(size: 8, weight: .bold))
+                            .font(.system(size: 9, weight: .bold))
                     }
-                    .padding(.horizontal, 8).padding(.vertical, 3)
+                    .padding(.horizontal, 10).padding(.vertical, 4)
                     .background(Theme.aiBg, in: Capsule())
                     .overlay(Capsule().stroke(Theme.aiBorder, lineWidth: 1))
                     .foregroundStyle(Theme.aiText)
                 }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
                 .help(L10n.t("切换当前对话使用的模型", "Switch the model used for this chat"))
             }
         }
     }
 
-    /// 顶部 Pill 上显示的模型名：未手动切换时显示「默认模型」，否则显示具体档名。
+    /// 顶部 Pill 上显示的模型名：直接展示当前实际使用的模型档。
     private var currentModelLabel: String {
-        if state.modelStore.activeID == nil { return L10n.t("默认模型", "Default model") }
-        if let p = state.modelStore.selectable.first(where: { $0.id == state.modelStore.activeID }) {
-            return ModelConfigStore.displayName(p)
+        guard let cfg = state.activeConfig else {
+            return L10n.t("未配置模型", "Model not set")
         }
-        return L10n.t("默认模型", "Default model")
+        return ModelConfigStore.displayName(cfg)
     }
 
     /// 已配置至少一个模型档 —— 这是「问 AI」能跑的前提。
