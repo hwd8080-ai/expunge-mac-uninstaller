@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import AppKit
 
 @MainActor
 final class AppState: ObservableObject {
@@ -175,6 +176,12 @@ final class AppState: ObservableObject {
     /// AI 模型设置面板（菜单栏 设置 → 配置 AI 模型… 触发）。
     @Published var showAIModelSettings: Bool = false
 
+    /// 是否拥有完全磁盘访问权限（FDA）。冷启动检测一次，app 激活时重测。
+    /// 没它扫不了 `~/Library` 下其他 app 的数据，扫描入口会据此改弹引导页。
+    @Published private(set) var fullDiskAccessGranted: Bool = false
+    /// 是否展示「需要完全磁盘访问权限」引导页（替代系统硬弹窗）。
+    @Published var showFDAGuidance: Bool = false
+
     /// 监听语言切换，触发整棵视图树重建，使 L10n.t() 重新求值。
     private var cancellables = Set<AnyCancellable>()
     private var lastLanguage: String = L10n.override.rawValue
@@ -253,6 +260,9 @@ final class AppState: ObservableObject {
         let target = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !target.isEmpty else { return }
 
+        // 没 FDA 不硬扫——改弹引导页，避免 macOS 每次都硬弹「想访问其他App的数据」。
+        guard fullDiskAccessGranted else { showFDAGuidance = true; return }
+
         isScanning = true
         lastError = nil
         plan = nil
@@ -311,6 +321,7 @@ final class AppState: ObservableObject {
 
     /// 用户从候选列表里改选了另一个 app，按它重扫。
     func scan(app: AppIdentity) async {
+        guard fullDiskAccessGranted else { showFDAGuidance = true; return }
         isScanning = true
         lastError = nil
         plan = nil
@@ -353,6 +364,7 @@ final class AppState: ObservableObject {
     // MARK: - 残留扫描（v1.2 孤儿 + v1.5 AI 工具合并）
 
     func scanLeftovers() async {
+        guard fullDiskAccessGranted else { showFDAGuidance = true; return }
         isScanningLeftovers = true
         defer {
             isScanningLeftovers = false
@@ -369,6 +381,33 @@ final class AppState: ObservableObject {
         // 每次扫描完默认全部折叠：group id 是本次新生成的，按默认折叠让用户逐一点开。
         // 折叠状态提升到 AppState（见 leftoverCollapsed），切 tab 后视图重建也不会重置。
         leftoverCollapsed = Set(groups.map(\.id))
+    }
+
+    /// 引导页点「我已授权」后调用：重测 FDA，若已授权则按当前 tab 重扫。
+    ///
+    /// - 返回是否已获得授权（false 时引导页应提示「仍未检测到授权」）。
+    /// - 重扫走原扫描入口：apps tab 用 searchText 重扫、leftovers tab 扫残留。
+    ///   processes tab 本就不需要 FDA，这里也兜住；askAI 不需要扫描。
+    @discardableResult
+    func recheckFullDiskAccessAndResume() -> Bool {
+        fullDiskAccessGranted = PrivacyAccess.hasFullDiskAccess()
+        guard fullDiskAccessGranted else { return false }
+        showFDAGuidance = false
+        let tab = selectedTab
+        let term = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        Task {
+            switch tab {
+            case .apps:
+                if !term.isEmpty { await scan() }
+            case .leftovers:
+                await scanLeftovers()
+            case .processes:
+                await scanProcesses()
+            case .askAI:
+                break
+            }
+        }
+        return true
     }
 
     /// 当前筛选档下可见的残留分组。
@@ -639,5 +678,17 @@ final class AppState: ObservableObject {
         // 「问 AI」历史恢复。放在 init 末尾 —— 全进程只跑一次。
         restoreChat()
         restoreMemory()
+
+        // 完全磁盘访问权限：冷启动检测一次。
+        fullDiskAccessGranted = PrivacyAccess.hasFullDiskAccess()
+        // app 从后台回到前台（用户在系统设置里授权完切回来）时重测，
+        // 这样引导页点「我已授权」后无需手动刷新即可继续。
+        NotificationCenter.default
+            .publisher(for: NSApplication.didBecomeActiveNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.fullDiskAccessGranted = PrivacyAccess.hasFullDiskAccess()
+            }
+            .store(in: &cancellables)
     }
 }

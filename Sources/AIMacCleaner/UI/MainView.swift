@@ -36,6 +36,9 @@ struct MainView: View {
         .sheet(isPresented: $state.showAIModelSettings) {
             AIModelSettingsSheet()
         }
+        .sheet(isPresented: $state.showFDAGuidance) {
+            FDAGuidanceSheet()
+        }
     }
 
     // MARK: - 侧栏
