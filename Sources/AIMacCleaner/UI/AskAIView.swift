@@ -42,8 +42,8 @@ struct AskAIView: View {
     var body: some View {
         VStack(spacing: 0) {
             PageHeader(title: L10n.t("问 AI", "Ask AI"),
-                       subtitle: L10n.t("用自然语言指挥 Agent 调用 AI Mac Cleaner 的 skill · 危险操作永远先征求你同意",
-                                         "Tell the agent what to clean up — it calls AI Mac Cleaner skills, and always asks before anything risky")) {
+                       subtitle: L10n.t("用自然语言清理 Mac，执行删除前会请你确认",
+                                         "Clean your Mac in plain language — it asks before deleting anything")) {
                 modelStatusPill
                 Button {
                     showSkills = true
@@ -224,8 +224,7 @@ struct AskAIView: View {
                 VStack(spacing: 8) {
                     Text(L10n.t("今天想清理点什么？", "What would you like to clean up today?"))
                         .font(.system(size: 22, weight: .semibold))
-                    Text(L10n.t("描述你的目标即可，例如「把 Cursor 彻底卸干净」。Agent 会自己决定调哪些 skill，先扫后判，执行前一定等你确认。\n\n斜杠命令：/new 新会话  /reset 重置上下文  /remember 记住一件事",
-                                "Describe your goal — e.g. “Uninstall Cursor completely”. The agent picks its own skills, scans before it judges, and waits for your OK before acting.\n\nCommands: /new clear chat  /reset restart context  /remember save a note"))
+                    Text(L10n.t("例如：把 Cursor 彻底卸干净", "e.g. uninstall Cursor completely"))
                         .font(.system(size: 12.5))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
@@ -239,25 +238,6 @@ struct AskAIView: View {
                 // 避免用户对着一堆点不动的入口发懵。
                 if modelReady {
                     chips
-
-                    HStack(spacing: 10) {
-                        cap(icon: "square.grid.2x2", title: L10n.t("\(SkillRegistry.all.count) 个 skill", "\(SkillRegistry.all.count) skills"),
-                            detail: L10n.t("每个都对应一条 AI Mac Cleaner 自己的 CLI", "each maps to a real AI Mac Cleaner CLI command"))
-                        cap(icon: "hand.raised.fill", title: L10n.t("执行前必确认", "Asks before acting"),
-                            detail: L10n.t("Agent 只出计划，删除由你点确认", "the agent only drafts plans — you approve removals"))
-                        cap(icon: "lock.fill", title: L10n.t("数据不出本机", "Stays on your Mac"),
-                            detail: L10n.t("没有通用 shell，不读文件内容", "no general shell, never reads file contents"))
-                    }
-                    .padding(.horizontal, 12)
-
-                    Button {
-                        showSkills = true
-                    } label: {
-                        Text(L10n.t("看看 Agent 能调用哪些 skill →", "See which skills the agent can call →"))
-                            .font(.system(size: 11.5))
-                            .foregroundStyle(Theme.accent)
-                    }
-                    .buttonStyle(.plain)
                 }
             }
             .padding(20)
@@ -327,19 +307,6 @@ struct AskAIView: View {
             .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.riskUncertainBorder, lineWidth: 1))
         }
         .buttonStyle(.plain)
-    }
-
-    private func cap(icon: String, title: String, detail: String) -> some View {
-        VStack(spacing: 4) {
-            Image(systemName: icon).font(.system(size: 16)).foregroundStyle(Theme.accent)
-            Text(title).font(.system(size: 11.5, weight: .semibold))
-            Text(detail).font(.system(size: 10)).foregroundStyle(.tertiary)
-                .multilineTextAlignment(.center).frame(maxWidth: 150)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(10)
-        .background(Theme.bgSurface, in: RoundedRectangle(cornerRadius: 10))
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.divider, lineWidth: 1))
     }
 
     // MARK: - 对话记录
@@ -428,8 +395,8 @@ struct AskAIView: View {
                 ZStack(alignment: .topLeading) {
                     // placeholder：TextEditor 没有内置 placeholder，用 overlay 实现。
                     if input.isEmpty {
-                        Text(L10n.t("描述你想清理什么，回车发送（⌥回车换行）…",
-                                     "Describe what to clean up — Return to send, ⌥Return for a new line…"))
+                        Text(L10n.t("描述你想清理什么，输入 / 查看命令，回车发送（⌥回车换行）…",
+                                     "Describe what to clean up, type / for commands, Return to send…"))
                             .font(.system(size: 12.5))
                             .foregroundStyle(.tertiary)
                             .lineSpacing(2)
